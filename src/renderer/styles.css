@@ -953,6 +953,34 @@ kbd {
   font-size: 11px;
 }
 
+.settings-toggle-actions {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.settings-toggle-actions button {
+  background: var(--nx-bg);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-sm);
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.settings-toggle-actions button:hover {
+  background: var(--nx-sidebar-hover);
+  border-color: var(--nx-accent);
+}
+
+.toggle-flash {
+  font-size: 11px;
+  color: var(--nx-accent);
+}
+
 .theme-field {
   display: grid;
   grid-template-columns: 60px 1fr;

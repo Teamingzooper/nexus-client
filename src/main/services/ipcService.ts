@@ -183,6 +183,11 @@ export class IpcService implements Service {
       },
     });
 
+    this.router.register(IPC.NOTIFY_TEST, {
+      input: z.string().nullable().optional(),
+      handler: (instanceId) => notifications.testNotification(instanceId ?? null),
+    });
+
     this.router.register(IPC.SIDEBAR_UPDATE_LAYOUT, {
       input: sidebarLayoutSchema,
       handler: (layout) => {

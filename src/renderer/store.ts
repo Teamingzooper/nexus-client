@@ -46,6 +46,7 @@ interface NexusStore {
   saveTheme(theme: Theme): Promise<void>;
   deleteTheme(id: string): Promise<void>;
   setNotificationsEnabled(enabled: boolean): Promise<void>;
+  testNotification(): Promise<boolean>;
   exportThemePack(
     ids: string[],
     meta?: { name?: string; author?: string },
@@ -177,6 +178,10 @@ export const useNexus = create<NexusStore>((set, get) => ({
   async setNotificationsEnabled(enabled) {
     await window.nexus.setNotificationsEnabled(enabled);
     set((s) => ({ state: { ...s.state, notificationsEnabled: enabled } }));
+  },
+
+  async testNotification() {
+    return window.nexus.testNotification(null);
   },
 
   async exportThemePack(ids, meta) {

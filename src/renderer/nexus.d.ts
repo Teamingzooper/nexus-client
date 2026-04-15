@@ -40,8 +40,10 @@ declare global {
       clearAllData(): Promise<void>;
 
       onUnread(cb: (update: UnreadUpdate) => void): () => void;
+      onMenu(cb: (event: string) => void): () => void;
       getAllUnread(): Promise<Record<string, number>>;
       setNotificationsEnabled(enabled: boolean): Promise<void>;
+      testNotification(instanceId?: string | null): Promise<boolean>;
     };
   }
 }

@@ -15,6 +15,8 @@ export function SettingsPanel({ onClose }: Props) {
   const instances = useNexus((s) => s.state.instances);
   const notificationsEnabled = useNexus((s) => s.state.notificationsEnabled ?? true);
   const setNotificationsEnabled = useNexus((s) => s.setNotificationsEnabled);
+  const testNotification = useNexus((s) => s.testNotification);
+  const [notifFlash, setNotifFlash] = useState<string | null>(null);
   const addInstance = useNexus((s) => s.addInstance);
   const removeInstance = useNexus((s) => s.removeInstance);
   const reload = useNexus((s) => s.reloadModules);
@@ -115,6 +117,22 @@ export function SettingsPanel({ onClose }: Props) {
                     Show native OS notifications when any instance receives a message.
                     Format: <code>[Nexus] &lt;instance name&gt;</code> with the message content
                     as the body. Click a notification to focus that instance.
+                  </div>
+                  <div className="settings-toggle-actions">
+                    <button
+                      onClick={async () => {
+                        const ok = await testNotification();
+                        setNotifFlash(
+                          ok
+                            ? 'Test notification sent — check your notification center.'
+                            : 'Could not show a test notification. Your OS may be blocking them.',
+                        );
+                        setTimeout(() => setNotifFlash(null), 4000);
+                      }}
+                    >
+                      Send test notification
+                    </button>
+                    {notifFlash && <span className="toggle-flash">{notifFlash}</span>}
                   </div>
                 </div>
               </label>

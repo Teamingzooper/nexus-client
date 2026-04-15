@@ -76,6 +76,38 @@ export const mainWorldNotificationShim = `(() => {
       // Fall back to direct assignment.
       window.Notification = NexusNotification;
     }
+
+    // Service workers have their own Notification global which our
+    // window.Notification override never touches. BUT when the main thread
+    // calls registration.showNotification(...) it goes through
+    // ServiceWorkerRegistration.prototype.showNotification — that method
+    // lives on the main-world prototype and we CAN patch it here. This is
+    // the path WhatsApp Web takes for incoming-message popups, so
+    // overriding it is essential for WhatsApp coverage.
+    try {
+      if (
+        typeof ServiceWorkerRegistration !== 'undefined' &&
+        ServiceWorkerRegistration.prototype &&
+        ServiceWorkerRegistration.prototype.showNotification
+      ) {
+        var swProto = ServiceWorkerRegistration.prototype;
+        var originalShow = swProto.showNotification;
+        swProto.showNotification = function (title, options) {
+          var opts = options || {};
+          dispatch({
+            title: typeof title === 'string' ? title : String(title || ''),
+            body: typeof opts.body === 'string' ? opts.body : '',
+            tag: typeof opts.tag === 'string' ? opts.tag : '',
+            icon: typeof opts.icon === 'string' ? opts.icon : '',
+          });
+          return Promise.resolve();
+        };
+        swProto.showNotification.__nexusOriginal = originalShow;
+      }
+    } catch (e) {
+      // Prototype locked down — window.Notification override still handles
+      // the non-SW path.
+    }
   } catch (e) {
     // Never let the shim crash the page.
   }

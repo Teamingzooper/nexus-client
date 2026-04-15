@@ -31,6 +31,20 @@ export function App() {
     init();
   }, [init]);
 
+  // Native app menu dispatches. The main-process MenuService fires these via
+  // nexus:menu IPC so items like "Settings…" and "New Instance…" in the
+  // macOS menu bar route through the same store actions as the in-app UI.
+  useEffect(() => {
+    const unsubscribe = window.nexus.onMenu((event) => {
+      if (event === 'open-settings') {
+        useNexus.getState().openSettings();
+      } else if (event === 'add-instance') {
+        useNexus.getState().openAddInstance();
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     const theme = previewTheme ?? themes.find((t) => t.id === themeId) ?? themes[0];
     if (theme) applyTheme(theme);
