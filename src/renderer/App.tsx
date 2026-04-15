@@ -14,6 +14,7 @@ export function App() {
   const error = useNexus((s) => s.error);
   const themes = useNexus((s) => s.themes);
   const themeId = useNexus((s) => s.state.themeId);
+  const previewTheme = useNexus((s) => s.previewTheme);
   const activeModuleId = useNexus((s) => s.state.activeModuleId);
   const modules = useNexus((s) => s.modules);
   const enabledIds = useNexus((s) => s.state.enabledModuleIds);
@@ -26,9 +27,9 @@ export function App() {
   }, [init]);
 
   useEffect(() => {
-    const theme = themes.find((t) => t.id === themeId) ?? themes[0];
+    const theme = previewTheme ?? themes.find((t) => t.id === themeId) ?? themes[0];
     if (theme) applyTheme(theme);
-  }, [themes, themeId]);
+  }, [themes, themeId, previewTheme]);
 
   const enabled = useMemo(
     () => modules.filter((m) => enabledIds.includes(m.manifest.id)),

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { dialog, BrowserWindow } from 'electron';
+import * as fs from 'fs/promises';
 import { IPC } from '../../shared/types';
 import {
   boundsSchema,
@@ -7,6 +9,7 @@ import {
   themeSchema,
 } from '../../shared/schemas';
 import { sidebarLayoutSchema } from '../../shared/sidebarLayout';
+import type { WindowService } from './windowService';
 import type { Service, ServiceContext } from '../core/service';
 import { IpcRouter } from '../core/ipcRouter';
 import type { Logger } from '../core/logger';
@@ -30,6 +33,7 @@ export class IpcService implements Service {
     const registry = ctx.container.get<ModuleRegistryService>('modules');
     const views = ctx.container.get<ViewService>('views');
     const notifications = ctx.container.get<NotificationService>('notifications');
+    const windowSvc = ctx.container.get<WindowService>('window');
 
     this.router.register(IPC.MODULES_LIST, { handler: () => registry.list() });
 
@@ -87,6 +91,54 @@ export class IpcService implements Service {
     this.router.register(IPC.THEMES_DELETE, {
       input: themeIdSchema,
       handler: async (id) => themes.delete(id),
+    });
+
+    this.router.register(IPC.THEMES_EXPORT_PACK, {
+      input: z
+        .object({
+          ids: z.array(themeIdSchema).min(1),
+          name: z.string().max(128).optional(),
+          author: z.string().max(128).optional(),
+        })
+        .strict(),
+      handler: async ({ ids, name, author }) => {
+        const pack = themes.buildPack(ids, { name, author });
+        const win = windowSvc.getWindow();
+        const parent = win && !win.isDestroyed() ? win : (BrowserWindow.getFocusedWindow() ?? undefined);
+        const result = await dialog.showSaveDialog(parent as BrowserWindow, {
+          title: 'Export theme pack',
+          defaultPath: `${(name ?? pack.themes[0].name).toLowerCase().replace(/\s+/g, '-')}.nexustheme.json`,
+          filters: [{ name: 'Nexus theme pack', extensions: ['json'] }],
+        });
+        if (result.canceled || !result.filePath) {
+          return { canceled: true as const };
+        }
+        await fs.writeFile(result.filePath, JSON.stringify(pack, null, 2), 'utf8');
+        return { canceled: false as const, path: result.filePath, count: pack.themes.length };
+      },
+    });
+
+    this.router.register(IPC.THEMES_IMPORT_PACK, {
+      handler: async () => {
+        const win = windowSvc.getWindow();
+        const parent = win && !win.isDestroyed() ? win : (BrowserWindow.getFocusedWindow() ?? undefined);
+        const result = await dialog.showOpenDialog(parent as BrowserWindow, {
+          title: 'Import theme pack',
+          properties: ['openFile'],
+          filters: [{ name: 'Nexus theme pack', extensions: ['json'] }],
+        });
+        if (result.canceled || result.filePaths.length === 0) {
+          return { canceled: true as const };
+        }
+        const filePath = result.filePaths[0];
+        const raw = await fs.readFile(filePath, 'utf8');
+        const added = await themes.importPack(raw);
+        return {
+          canceled: false as const,
+          added,
+          themes: themes.list(),
+        };
+      },
     });
 
     this.router.register(IPC.STATE_GET, { handler: () => settings.state });

@@ -22,6 +22,13 @@ declare global {
       setTheme(id: string): Promise<void>;
       saveTheme(theme: Theme): Promise<Theme[]>;
       deleteTheme(id: string): Promise<Theme[]>;
+      exportThemePack(
+        ids: string[],
+        meta?: { name?: string; author?: string },
+      ): Promise<{ canceled: true } | { canceled: false; path: string; count: number }>;
+      importThemePack(): Promise<
+        { canceled: true } | { canceled: false; added: Theme[]; themes: Theme[] }
+      >;
 
       getState(): Promise<AppState>;
       setContentBounds(bounds: Bounds): Promise<void>;

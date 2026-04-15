@@ -81,6 +81,14 @@ export const themeSchema = z.object({
   colors: themeColorsSchema,
 });
 
+export const themePackSchema = z.object({
+  $schema: z.literal('nexus-theme-pack').optional(),
+  version: z.literal(1),
+  name: z.string().max(128).optional(),
+  author: z.string().max(128).optional(),
+  themes: z.array(themeSchema).min(1).max(64),
+});
+
 export const boundsSchema = z.object({
   x: z.number().int().min(0).max(10000),
   y: z.number().int().min(0).max(10000),

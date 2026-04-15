@@ -3,6 +3,7 @@ import {
   manifestSchema,
   themeSchema,
   themeColorsSchema,
+  themePackSchema,
   appStateSchema,
   notificationSchema,
   boundsSchema,
@@ -11,6 +12,7 @@ import {
 export type ModuleManifest = z.infer<typeof manifestSchema>;
 export type Theme = z.infer<typeof themeSchema>;
 export type ThemeColors = z.infer<typeof themeColorsSchema>;
+export type ThemePack = z.infer<typeof themePackSchema>;
 export type AppState = z.infer<typeof appStateSchema>;
 export type NotificationStrategySpec = z.infer<typeof notificationSchema>;
 export type Bounds = z.infer<typeof boundsSchema>;
@@ -48,6 +50,8 @@ export const IPC = {
   THEMES_SET: 'nexus:themes:set',
   THEMES_SAVE: 'nexus:themes:save',
   THEMES_DELETE: 'nexus:themes:delete',
+  THEMES_EXPORT_PACK: 'nexus:themes:export-pack',
+  THEMES_IMPORT_PACK: 'nexus:themes:import-pack',
   STATE_GET: 'nexus:state:get',
   LAYOUT_SET_BOUNDS: 'nexus:layout:set-bounds',
   LAYOUT_SUSPEND: 'nexus:layout:suspend',

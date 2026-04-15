@@ -106,4 +106,94 @@ describe('ThemeService', () => {
     expect(s.isBuiltIn('nexus-dark')).toBe(true);
     expect(s.isBuiltIn('custom-one')).toBe(false);
   });
+
+  describe('theme pack', () => {
+    it('buildPack collects requested themes', async () => {
+      const s = new ThemeService();
+      await s.init(makeCtx(tmp));
+      await s.save(CUSTOM);
+      const pack = s.buildPack(['custom-one']);
+      expect(pack.version).toBe(1);
+      expect(pack.themes).toHaveLength(1);
+      expect(pack.themes[0].id).toBe('custom-one');
+    });
+
+    it('buildPack silently drops unknown ids', async () => {
+      const s = new ThemeService();
+      await s.init(makeCtx(tmp));
+      const pack = s.buildPack(['nexus-dark', 'does-not-exist']);
+      expect(pack.themes).toHaveLength(1);
+      expect(pack.themes[0].id).toBe('nexus-dark');
+    });
+
+    it('buildPack throws when no valid themes', async () => {
+      const s = new ThemeService();
+      await s.init(makeCtx(tmp));
+      expect(() => s.buildPack(['does-not-exist'])).toThrow(/no valid themes/);
+    });
+
+    it('importPack merges custom themes by id', async () => {
+      const s = new ThemeService();
+      await s.init(makeCtx(tmp));
+      const pack = {
+        $schema: 'nexus-theme-pack',
+        version: 1,
+        themes: [CUSTOM],
+      };
+      const added = await s.importPack(JSON.stringify(pack));
+      expect(added).toHaveLength(1);
+      expect(s.get('custom-one')).toEqual(CUSTOM);
+    });
+
+    it('importPack renames incoming themes that collide with built-ins', async () => {
+      const s = new ThemeService();
+      await s.init(makeCtx(tmp));
+      const pack = {
+        $schema: 'nexus-theme-pack',
+        version: 1,
+        themes: [{ ...CUSTOM, id: 'nexus-dark', name: 'Hijacker' }],
+      };
+      const added = await s.importPack(JSON.stringify(pack));
+      expect(added[0].id).not.toBe('nexus-dark');
+      expect(added[0].id).toMatch(/^nexus-dark-imported/);
+      // Built-in is untouched.
+      expect(s.get('nexus-dark')?.name).toBe('Nexus Dark');
+    });
+
+    it('importPack rejects malformed JSON', async () => {
+      const s = new ThemeService();
+      await s.init(makeCtx(tmp));
+      await expect(s.importPack('{not json')).rejects.toThrow();
+    });
+
+    it('importPack rejects packs missing version', async () => {
+      const s = new ThemeService();
+      await s.init(makeCtx(tmp));
+      await expect(
+        s.importPack(JSON.stringify({ themes: [CUSTOM] })),
+      ).rejects.toThrow();
+    });
+
+    it('importPack rejects themes with invalid colors', async () => {
+      const s = new ThemeService();
+      await s.init(makeCtx(tmp));
+      const bad = {
+        version: 1,
+        themes: [{ ...CUSTOM, colors: { ...CUSTOM.colors, bg: 'not-a-color' } }],
+      };
+      await expect(s.importPack(JSON.stringify(bad))).rejects.toThrow();
+    });
+
+    it('importPack persists to disk so subsequent instances see the new theme', async () => {
+      const s1 = new ThemeService();
+      await s1.init(makeCtx(tmp));
+      await s1.importPack(
+        JSON.stringify({ version: 1, themes: [CUSTOM] }),
+      );
+
+      const s2 = new ThemeService();
+      await s2.init(makeCtx(tmp));
+      expect(s2.get('custom-one')).toEqual(CUSTOM);
+    });
+  });
 });

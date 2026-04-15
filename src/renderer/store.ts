@@ -9,6 +9,7 @@ interface NexusStore {
   unread: Record<string, number>;
   ready: boolean;
   error: string | null;
+  previewTheme: Theme | null;
 
   init(): Promise<void>;
   activate(id: string): Promise<void>;
@@ -19,6 +20,9 @@ interface NexusStore {
   setTheme(id: string): Promise<void>;
   saveTheme(theme: Theme): Promise<void>;
   deleteTheme(id: string): Promise<void>;
+  exportThemePack(ids: string[], meta?: { name?: string; author?: string }): Promise<{ canceled: boolean; path?: string; count?: number }>;
+  importThemePack(): Promise<{ canceled: boolean; added?: Theme[] }>;
+  setPreviewTheme(theme: Theme | null): void;
   updateLayout(layout: SidebarLayout): Promise<void>;
 }
 
@@ -36,6 +40,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
   unread: {},
   ready: false,
   error: null,
+  previewTheme: null,
 
   async init() {
     try {
@@ -109,6 +114,22 @@ export const useNexus = create<NexusStore>((set, get) => ({
       themes,
       state: s.state.themeId === id ? { ...s.state, themeId: 'nexus-dark' } : s.state,
     }));
+  },
+
+  async exportThemePack(ids, meta) {
+    const result = await window.nexus.exportThemePack(ids, meta);
+    return result.canceled ? { canceled: true } : { canceled: false, path: result.path, count: result.count };
+  },
+
+  async importThemePack() {
+    const result = await window.nexus.importThemePack();
+    if (result.canceled) return { canceled: true };
+    set({ themes: result.themes });
+    return { canceled: false, added: result.added };
+  },
+
+  setPreviewTheme(theme) {
+    set({ previewTheme: theme });
   },
 
   async updateLayout(layout) {

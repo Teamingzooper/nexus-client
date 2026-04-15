@@ -1,8 +1,8 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { z } from 'zod';
-import { themeSchema } from '../../shared/schemas';
-import type { Theme } from '../../shared/types';
+import { themeSchema, themePackSchema } from '../../shared/schemas';
+import type { Theme, ThemePack } from '../../shared/types';
 import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 
@@ -125,5 +125,55 @@ export class ThemeService implements Service {
     const tmp = `${this.file}.tmp`;
     await fs.writeFile(tmp, JSON.stringify(customs, null, 2), 'utf8');
     await fs.rename(tmp, this.file);
+  }
+
+  /** Build a JSON pack from a list of theme ids. Unknown ids are skipped. */
+  buildPack(ids: string[], meta?: { name?: string; author?: string }): ThemePack {
+    const themes: Theme[] = [];
+    for (const id of ids) {
+      const t = this.themes.get(id);
+      if (t) themes.push(t);
+    }
+    if (themes.length === 0) throw new Error('no valid themes to export');
+    return {
+      $schema: 'nexus-theme-pack',
+      version: 1,
+      name: meta?.name,
+      author: meta?.author,
+      themes,
+    };
+  }
+
+  /**
+   * Import a pack file and merge it into the custom themes.
+   * Themes whose id collides with a built-in get a unique suffix; customs are
+   * overwritten. Returns the list of themes actually added.
+   */
+  async importPack(rawJson: string): Promise<Theme[]> {
+    const parsed = themePackSchema.parse(JSON.parse(rawJson));
+    const added: Theme[] = [];
+    for (const incoming of parsed.themes) {
+      let target: Theme;
+      if (BUILT_IN_IDS.has(incoming.id)) {
+        // Rename to avoid overwriting a built-in.
+        target = { ...incoming, id: this.makeUniqueId(incoming.id) };
+      } else {
+        target = incoming;
+      }
+      this.themes.set(target.id, target);
+      added.push(target);
+    }
+    await this.persistCustoms();
+    return added;
+  }
+
+  private makeUniqueId(base: string): string {
+    let candidate = `${base}-imported`;
+    let n = 1;
+    while (this.themes.has(candidate) || BUILT_IN_IDS.has(candidate)) {
+      n += 1;
+      candidate = `${base}-imported-${n}`;
+    }
+    return candidate;
   }
 }

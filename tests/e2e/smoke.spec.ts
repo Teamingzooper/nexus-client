@@ -90,6 +90,46 @@ test('theme switching updates CSS variables on :root', async ({ mainWindow }) =>
   expect(after).not.toBe(before);
 });
 
+test('color picker is always enabled and auto-drafts on change', async ({ mainWindow }) => {
+  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.tab:has-text("Themes")').click();
+
+  // On a built-in theme, no draft exists yet and Save/Cancel shouldn't be visible.
+  await expect(mainWindow.locator('button:has-text("Save")')).toHaveCount(0);
+
+  // The color pickers must NOT be disabled (this was the bug).
+  const firstPicker = mainWindow.locator('.color-field input[type="color"]').first();
+  await expect(firstPicker).toBeEnabled();
+
+  // React controlled <input> needs the native setter to notice value mutations from tests.
+  await firstPicker.evaluate((el: HTMLInputElement) => {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )!.set!;
+    setter.call(el, '#ff00aa');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+
+  // Save button should now appear (draft was auto-created).
+  await expect(mainWindow.locator('button:has-text("Save")')).toBeVisible();
+
+  // And the CSS variable should immediately reflect the live preview.
+  const bg = await mainWindow.evaluate(() =>
+    getComputedStyle(document.documentElement).getPropertyValue('--nx-bg').trim(),
+  );
+  expect(bg.toLowerCase()).toBe('#ff00aa');
+});
+
+test('theme pack export/import buttons are visible', async ({ mainWindow }) => {
+  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.tab:has-text("Themes")').click();
+  await expect(mainWindow.locator('button:has-text("Import pack")')).toBeVisible();
+  await expect(mainWindow.locator('button:has-text("Export current")')).toBeVisible();
+  await expect(mainWindow.locator('button:has-text("Export all custom")')).toBeVisible();
+});
+
 test('window resize reports new bounds without crashing', async ({ app, mainWindow }) => {
   const sizes: [number, number][] = [
     [1200, 800],

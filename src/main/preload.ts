@@ -35,6 +35,14 @@ const api = {
   setTheme: (id: string): Promise<void> => invoke(IPC.THEMES_SET, id),
   saveTheme: (theme: Theme): Promise<Theme[]> => invoke(IPC.THEMES_SAVE, theme),
   deleteTheme: (id: string): Promise<Theme[]> => invoke(IPC.THEMES_DELETE, id),
+  exportThemePack: (
+    ids: string[],
+    meta?: { name?: string; author?: string },
+  ): Promise<{ canceled: true } | { canceled: false; path: string; count: number }> =>
+    invoke(IPC.THEMES_EXPORT_PACK, { ids, ...meta }),
+  importThemePack: (): Promise<
+    { canceled: true } | { canceled: false; added: Theme[]; themes: Theme[] }
+  > => invoke(IPC.THEMES_IMPORT_PACK),
 
   getState: (): Promise<AppState> => invoke(IPC.STATE_GET),
   setContentBounds: (bounds: Bounds): Promise<void> => invoke(IPC.LAYOUT_SET_BOUNDS, bounds),
