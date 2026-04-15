@@ -1,10 +1,11 @@
 import { z } from 'zod';
 
 // Inlined to avoid a circular import with schemas.ts.
-const moduleIdLike = z
+// Entry ids are either module ids or instance ids; both share the same format.
+const entryIdLike = z
   .string()
   .min(1)
-  .max(64)
+  .max(96)
   .regex(/^[a-z0-9][a-z0-9-_]*$/);
 
 export const sidebarGroupSchema = z.object({
@@ -15,7 +16,7 @@ export const sidebarGroupSchema = z.object({
     .regex(/^[a-z0-9][a-z0-9-_]*$/, 'group id must be lowercase alphanumeric with - or _'),
   name: z.string().min(1).max(64),
   collapsed: z.boolean().optional(),
-  moduleIds: z.array(moduleIdLike),
+  entryIds: z.array(entryIdLike),
 });
 
 export const sidebarLayoutSchema = z.object({
@@ -29,43 +30,43 @@ export const DEFAULT_GROUP_ID = 'main';
 
 export function defaultLayout(): SidebarLayout {
   return {
-    groups: [{ id: DEFAULT_GROUP_ID, name: 'Modules', moduleIds: [] }],
+    groups: [{ id: DEFAULT_GROUP_ID, name: 'Modules', entryIds: [] }],
   };
 }
 
-/** Find which group contains a module. Returns null if not present. */
-export function findGroup(layout: SidebarLayout, moduleId: string): SidebarGroup | null {
-  return layout.groups.find((g) => g.moduleIds.includes(moduleId)) ?? null;
+/** Find which group contains an entry. Returns null if not present. */
+export function findGroup(layout: SidebarLayout, entryId: string): SidebarGroup | null {
+  return layout.groups.find((g) => g.entryIds.includes(entryId)) ?? null;
 }
 
-/** Remove a module from wherever it currently lives. Returns a new layout. */
-export function removeModule(layout: SidebarLayout, moduleId: string): SidebarLayout {
+/** Remove an entry from wherever it currently lives. Returns a new layout. */
+export function removeEntry(layout: SidebarLayout, entryId: string): SidebarLayout {
   return {
     groups: layout.groups.map((g) => ({
       ...g,
-      moduleIds: g.moduleIds.filter((id) => id !== moduleId),
+      entryIds: g.entryIds.filter((id) => id !== entryId),
     })),
   };
 }
 
 /**
- * Guarantee that every id in `enabledIds` appears in exactly one group, appending
- * any missing ones to the first group. Also prunes ids no longer enabled. Pure.
+ * Guarantee that every id in `validIds` appears in exactly one group, appending
+ * any missing ones to the first group. Also prunes ids no longer valid. Pure.
  */
-export function reconcile(layout: SidebarLayout, enabledIds: readonly string[]): SidebarLayout {
-  const enabledSet = new Set(enabledIds);
+export function reconcile(layout: SidebarLayout, validIds: readonly string[]): SidebarLayout {
+  const validSet = new Set(validIds);
 
-  // 1. Prune disabled/unknown.
+  // 1. Prune ids that are no longer valid.
   let groups = layout.groups.map((g) => ({
     ...g,
-    moduleIds: g.moduleIds.filter((id) => enabledSet.has(id)),
+    entryIds: g.entryIds.filter((id) => validSet.has(id)),
   }));
 
-  // 2. Deduplicate (same id in two groups — keep first).
+  // 2. Deduplicate (same id in two groups — keep the first occurrence).
   const seen = new Set<string>();
   groups = groups.map((g) => ({
     ...g,
-    moduleIds: g.moduleIds.filter((id) => {
+    entryIds: g.entryIds.filter((id) => {
       if (seen.has(id)) return false;
       seen.add(id);
       return true;
@@ -74,15 +75,15 @@ export function reconcile(layout: SidebarLayout, enabledIds: readonly string[]):
 
   // 3. Ensure at least one group exists.
   if (groups.length === 0) {
-    groups = [{ id: DEFAULT_GROUP_ID, name: 'Modules', moduleIds: [] }];
+    groups = [{ id: DEFAULT_GROUP_ID, name: 'Modules', entryIds: [] }];
   }
 
-  // 4. Append missing enabled modules to the first group.
-  const placed = new Set(groups.flatMap((g) => g.moduleIds));
-  const missing = enabledIds.filter((id) => !placed.has(id));
+  // 4. Append missing valid ids to the first group.
+  const placed = new Set(groups.flatMap((g) => g.entryIds));
+  const missing = validIds.filter((id) => !placed.has(id));
   if (missing.length > 0) {
     groups = groups.map((g, i) =>
-      i === 0 ? { ...g, moduleIds: [...g.moduleIds, ...missing] } : g,
+      i === 0 ? { ...g, entryIds: [...g.entryIds, ...missing] } : g,
     );
   }
 
@@ -90,31 +91,31 @@ export function reconcile(layout: SidebarLayout, enabledIds: readonly string[]):
 }
 
 export type DropTarget =
-  | { kind: 'before' | 'after'; groupId: string; moduleId: string }
+  | { kind: 'before' | 'after'; groupId: string; entryId: string }
   | { kind: 'group-append'; groupId: string };
 
-/** Move a module to a new position. Pure. */
-export function moveModule(
+/** Move an entry to a new position. Pure. */
+export function moveEntry(
   layout: SidebarLayout,
-  moduleId: string,
+  entryId: string,
   target: DropTarget,
 ): SidebarLayout {
-  // Remove the module from wherever it is now.
-  const stripped = removeModule(layout, moduleId);
+  // Remove the entry from wherever it is now.
+  const stripped = removeEntry(layout, entryId);
 
   const groups = stripped.groups.map((g) => {
     if (target.kind === 'group-append' && g.id === target.groupId) {
-      return { ...g, moduleIds: [...g.moduleIds, moduleId] };
+      return { ...g, entryIds: [...g.entryIds, entryId] };
     }
     if ((target.kind === 'before' || target.kind === 'after') && g.id === target.groupId) {
-      const idx = g.moduleIds.indexOf(target.moduleId);
+      const idx = g.entryIds.indexOf(target.entryId);
       if (idx < 0) {
-        return { ...g, moduleIds: [...g.moduleIds, moduleId] };
+        return { ...g, entryIds: [...g.entryIds, entryId] };
       }
       const insertAt = target.kind === 'before' ? idx : idx + 1;
-      const next = [...g.moduleIds];
-      next.splice(insertAt, 0, moduleId);
-      return { ...g, moduleIds: next };
+      const next = [...g.entryIds];
+      next.splice(insertAt, 0, entryId);
+      return { ...g, entryIds: next };
     }
     return g;
   });
@@ -125,7 +126,7 @@ export function moveModule(
 /** Add a new group at the end. Pure. */
 export function addGroup(layout: SidebarLayout, group: SidebarGroup): SidebarLayout {
   if (layout.groups.some((g) => g.id === group.id)) return layout;
-  return { groups: [...layout.groups, { ...group, moduleIds: group.moduleIds ?? [] }] };
+  return { groups: [...layout.groups, { ...group, entryIds: group.entryIds ?? [] }] };
 }
 
 /** Rename a group. Pure. */
@@ -149,7 +150,7 @@ export function toggleCollapsed(layout: SidebarLayout, groupId: string): Sidebar
 }
 
 /**
- * Delete a group and relocate its modules into the first remaining group.
+ * Delete a group and relocate its entries into the first remaining group.
  * Refuses to delete the only remaining group.
  */
 export function deleteGroup(layout: SidebarLayout, groupId: string): SidebarLayout {
@@ -159,7 +160,7 @@ export function deleteGroup(layout: SidebarLayout, groupId: string): SidebarLayo
   const remaining = layout.groups.filter((g) => g.id !== groupId);
   return {
     groups: remaining.map((g, i) =>
-      i === 0 ? { ...g, moduleIds: [...g.moduleIds, ...victim.moduleIds] } : g,
+      i === 0 ? { ...g, entryIds: [...g.entryIds, ...victim.entryIds] } : g,
     ),
   };
 }

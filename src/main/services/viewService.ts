@@ -1,16 +1,19 @@
-import { WebContentsView, session, shell } from 'electron';
+import { WebContentsView, session } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import type { Bounds, LoadedModule } from '../../shared/types';
+import type { Bounds, LoadedModule, ModuleInstance } from '../../shared/types';
+import { partitionForInstance } from '../../shared/instance';
 import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 import type { ModuleRegistryService } from './moduleRegistryService';
 import type { WindowService } from './windowService';
+import type { SettingsService } from './settingsService';
 import { DefaultStrategyFactory } from './notifications/strategies';
 import type { NotificationStrategy, StrategyFactory } from './notifications/strategy';
 import { hardenSession, installNavigationGuard, resolveModuleFile } from '../core/security';
 
 interface ManagedView {
+  instanceId: string;
   moduleId: string;
   view: WebContentsView;
   strategy?: NotificationStrategy;
@@ -24,6 +27,7 @@ export class ViewService implements Service {
   private ctx!: ServiceContext;
   private registry!: ModuleRegistryService;
   private windowService!: WindowService;
+  private settings!: SettingsService;
   private views = new Map<string, ManagedView>();
   private activeId: string | null = null;
   private bounds: Bounds = { x: 220, y: 40, width: 800, height: 600 };
@@ -35,6 +39,7 @@ export class ViewService implements Service {
     this.logger = ctx.logger.child('views');
     this.registry = ctx.container.get<ModuleRegistryService>('modules');
     this.windowService = ctx.container.get<WindowService>('window');
+    this.settings = ctx.container.get<SettingsService>('settings');
   }
 
   async dispose(): Promise<void> {
@@ -60,27 +65,30 @@ export class ViewService implements Service {
     if (mv) mv.view.setBounds(this.suspended ? HIDDEN : this.bounds);
   }
 
-  ensure(moduleId: string): ManagedView {
-    const existing = this.views.get(moduleId);
+  ensure(instanceId: string): ManagedView {
+    const existing = this.views.get(instanceId);
     if (existing) return existing;
 
-    const mod = this.registry.get(moduleId);
-    if (!mod) throw new Error(`module not found: ${moduleId}`);
+    const instance = this.settings.getInstance(instanceId);
+    if (!instance) throw new Error(`instance not found: ${instanceId}`);
 
-    const mv = this.create(mod);
-    this.views.set(moduleId, mv);
-    this.ctx.bus.emit('view:created', { moduleId });
+    const mod = this.registry.get(instance.moduleId);
+    if (!mod) throw new Error(`module not found for instance ${instanceId}: ${instance.moduleId}`);
+
+    const mv = this.create(instance, mod);
+    this.views.set(instanceId, mv);
+    this.ctx.bus.emit('view:created', { instanceId });
     return mv;
   }
 
-  activate(moduleId: string): void {
-    const mv = this.ensure(moduleId);
+  activate(instanceId: string): void {
+    const mv = this.ensure(instanceId);
     const win = this.windowService.getWindow();
     if (!win || win.isDestroyed()) return;
 
     // Detach all other views so only the active one is attached to contentView.
     for (const [id, other] of this.views) {
-      if (id !== moduleId) {
+      if (id !== instanceId) {
         try {
           win.contentView.removeChildView(other.view);
         } catch {
@@ -95,13 +103,13 @@ export class ViewService implements Service {
       // already attached
     }
 
-    this.activeId = moduleId;
+    this.activeId = instanceId;
     mv.view.setBounds(this.suspended ? HIDDEN : this.bounds);
-    this.ctx.bus.emit('module:activated', { moduleId });
+    this.ctx.bus.emit('instance:activated', { instanceId });
   }
 
-  destroy(moduleId: string): void {
-    const mv = this.views.get(moduleId);
+  destroy(instanceId: string): void {
+    const mv = this.views.get(instanceId);
     if (!mv) return;
     const win = this.windowService.getWindow();
     if (win && !win.isDestroyed()) {
@@ -117,9 +125,9 @@ export class ViewService implements Service {
     } catch {
       // ignore
     }
-    this.views.delete(moduleId);
-    if (this.activeId === moduleId) this.activeId = null;
-    this.ctx.bus.emit('view:destroyed', { moduleId });
+    this.views.delete(instanceId);
+    if (this.activeId === instanceId) this.activeId = null;
+    this.ctx.bus.emit('view:destroyed', { instanceId });
   }
 
   reloadActive(): void {
@@ -128,9 +136,9 @@ export class ViewService implements Service {
     if (mv) mv.view.webContents.reload();
   }
 
-  private create(mod: LoadedModule): ManagedView {
+  private create(instance: ModuleInstance, mod: LoadedModule): ManagedView {
     const manifest = mod.manifest;
-    const partition = manifest.partition ?? `persist:${manifest.id}`;
+    const partition = partitionForInstance(instance.id);
     const ses = session.fromPartition(partition);
 
     const origin = new URL(manifest.url).origin;
@@ -176,28 +184,33 @@ export class ViewService implements Service {
           this.logger.warn(`css inject failed for ${manifest.id}`, err);
         }
       }
-      this.ctx.bus.emit('view:ready', { moduleId: manifest.id });
+      this.ctx.bus.emit('view:ready', { instanceId: instance.id });
     });
 
     view.webContents.on('did-fail-load', (_e, code, desc, url) => {
       if (code === -3) return; // aborted
-      this.logger.warn(`load failed for ${manifest.id}: ${desc} (${code}) ${url}`);
-      this.ctx.bus.emit('view:load-failed', { moduleId: manifest.id, error: desc });
+      this.logger.warn(`load failed for ${instance.id}: ${desc} (${code}) ${url}`);
+      this.ctx.bus.emit('view:load-failed', { instanceId: instance.id, error: desc });
     });
 
     const strategy = this.strategyFactory.create(
       manifest.notifications ?? { kind: 'title' },
     );
-    const mv: ManagedView = { moduleId: manifest.id, view, strategy: strategy ?? undefined };
+    const mv: ManagedView = {
+      instanceId: instance.id,
+      moduleId: instance.moduleId,
+      view,
+      strategy: strategy ?? undefined,
+    };
 
     if (strategy) {
       strategy.attach({
-        moduleId: manifest.id,
+        moduleId: instance.id, // pass instance id so notifications are keyed per-instance
         webContents: view.webContents,
         logger: this.logger,
         emit: (count, preview) => {
           this.ctx.bus.emit('notification:update', {
-            moduleId: manifest.id,
+            moduleId: instance.id,
             count,
             preview,
           });
@@ -206,7 +219,7 @@ export class ViewService implements Service {
     }
 
     view.webContents.loadURL(manifest.url).catch((err) => {
-      this.logger.error(`loadURL failed for ${manifest.id}`, err);
+      this.logger.error(`loadURL failed for ${instance.id}`, err);
     });
 
     return mv;

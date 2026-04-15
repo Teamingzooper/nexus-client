@@ -5,6 +5,7 @@ import type {
   UnreadUpdate,
   Bounds,
   SidebarLayout,
+  ModuleInstance,
 } from '../shared/types';
 
 declare global {
@@ -12,11 +13,13 @@ declare global {
     nexus: {
       listModules(): Promise<LoadedModule[]>;
       reloadModules(): Promise<LoadedModule[]>;
-      activateModule(id: string): Promise<void>;
-      enableModule(id: string): Promise<void>;
-      disableModule(id: string): Promise<void>;
       openModulesDir(): Promise<void>;
-      reloadActiveModule(): Promise<void>;
+
+      addInstance(moduleId: string): Promise<ModuleInstance>;
+      removeInstance(instanceId: string): Promise<void>;
+      renameInstance(instanceId: string, name: string): Promise<void>;
+      activateInstance(instanceId: string): Promise<void>;
+      reloadActiveInstance(): Promise<void>;
 
       listThemes(): Promise<Theme[]>;
       setTheme(id: string): Promise<void>;

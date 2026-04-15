@@ -9,6 +9,7 @@ import {
   themeSchema,
 } from '../../shared/schemas';
 import { sidebarLayoutSchema } from '../../shared/sidebarLayout';
+import { instanceIdSchema } from '../../shared/instance';
 import type { WindowService } from './windowService';
 import type { Service, ServiceContext } from '../core/service';
 import { IpcRouter } from '../core/ipcRouter';
@@ -39,36 +40,49 @@ export class IpcService implements Service {
 
     this.router.register(IPC.MODULES_RELOAD, { handler: () => registry.reload() });
 
-    this.router.register(IPC.MODULES_ACTIVATE, {
-      input: moduleIdSchema,
-      handler: (id) => {
-        if (!registry.get(id)) throw new Error(`unknown module: ${id}`);
-        if (!settings.state.enabledModuleIds.includes(id)) settings.enableModule(id);
-        views.activate(id);
-        settings.setActive(id);
-      },
-    });
-
-    this.router.register(IPC.MODULES_ENABLE, {
-      input: moduleIdSchema,
-      handler: (id) => {
-        if (!registry.get(id)) throw new Error(`unknown module: ${id}`);
-        settings.enableModule(id);
-      },
-    });
-
-    this.router.register(IPC.MODULES_DISABLE, {
-      input: moduleIdSchema,
-      handler: (id) => {
-        views.destroy(id);
-        settings.disableModule(id);
-        ctx.bus.emit('module:disabled', { moduleId: id });
-      },
-    });
-
     this.router.register(IPC.MODULES_OPEN_DIR, { handler: () => registry.openUserDir() });
 
-    this.router.register(IPC.MODULES_RELOAD_ACTIVE, {
+    this.router.register(IPC.INSTANCES_ADD, {
+      input: moduleIdSchema,
+      handler: (moduleId) => {
+        const mod = registry.get(moduleId);
+        if (!mod) throw new Error(`unknown module: ${moduleId}`);
+        const instance = settings.addInstance(moduleId, mod.manifest.name);
+        ctx.bus.emit('instance:added', { instanceId: instance.id, moduleId });
+        return instance;
+      },
+    });
+
+    this.router.register(IPC.INSTANCES_REMOVE, {
+      input: instanceIdSchema,
+      handler: (instanceId) => {
+        views.destroy(instanceId);
+        settings.removeInstance(instanceId);
+        ctx.bus.emit('instance:removed', { instanceId });
+      },
+    });
+
+    this.router.register(IPC.INSTANCES_RENAME, {
+      input: z.object({ id: instanceIdSchema, name: z.string().min(1).max(96) }),
+      handler: ({ id, name }) => {
+        if (!settings.getInstance(id)) throw new Error(`unknown instance: ${id}`);
+        settings.renameInstance(id, name);
+        ctx.bus.emit('instance:renamed', { instanceId: id, name });
+      },
+    });
+
+    this.router.register(IPC.INSTANCES_ACTIVATE, {
+      input: instanceIdSchema,
+      handler: (instanceId) => {
+        if (!settings.getInstance(instanceId)) {
+          throw new Error(`unknown instance: ${instanceId}`);
+        }
+        views.activate(instanceId);
+        settings.setActive(instanceId);
+      },
+    });
+
+    this.router.register(IPC.INSTANCES_RELOAD_ACTIVE, {
       handler: () => views.reloadActive(),
     });
 

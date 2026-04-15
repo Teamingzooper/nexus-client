@@ -17,6 +17,7 @@ export type AppState = z.infer<typeof appStateSchema>;
 export type NotificationStrategySpec = z.infer<typeof notificationSchema>;
 export type Bounds = z.infer<typeof boundsSchema>;
 export type { SidebarLayout, SidebarGroup, DropTarget } from './sidebarLayout';
+export type { ModuleInstance } from './instance';
 
 export interface LoadedModule {
   manifest: ModuleManifest;
@@ -40,12 +41,13 @@ export interface WindowState {
 
 export const IPC = {
   MODULES_LIST: 'nexus:modules:list',
-  MODULES_ACTIVATE: 'nexus:modules:activate',
-  MODULES_ENABLE: 'nexus:modules:enable',
-  MODULES_DISABLE: 'nexus:modules:disable',
   MODULES_OPEN_DIR: 'nexus:modules:open-dir',
   MODULES_RELOAD: 'nexus:modules:reload',
-  MODULES_RELOAD_ACTIVE: 'nexus:modules:reload-active',
+  INSTANCES_ACTIVATE: 'nexus:instances:activate',
+  INSTANCES_ADD: 'nexus:instances:add',
+  INSTANCES_REMOVE: 'nexus:instances:remove',
+  INSTANCES_RENAME: 'nexus:instances:rename',
+  INSTANCES_RELOAD_ACTIVE: 'nexus:instances:reload-active',
   THEMES_LIST: 'nexus:themes:list',
   THEMES_SET: 'nexus:themes:set',
   THEMES_SAVE: 'nexus:themes:save',

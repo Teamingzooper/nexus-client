@@ -32,14 +32,58 @@ test('new-group button adds a group and puts it into rename mode', async ({ main
   await expect(mainWindow.locator('.group-name').nth(1)).toContainText('Work');
 });
 
-test('sidebar shows bundled modules as enableable', async ({ mainWindow }) => {
-  // Open settings via button
+test('settings modules tab lists bundled modules with + Add buttons', async ({
+  mainWindow,
+}) => {
   await mainWindow.locator('.settings-btn').click();
   await expect(mainWindow.locator('.modal')).toBeVisible();
-  const rows = mainWindow.locator('.module-settings li');
-  // WhatsApp / Telegram / Messenger come bundled.
-  await expect(rows).toHaveCount(3);
-  await expect(mainWindow.locator('.module-settings li:has-text("WhatsApp")')).toBeVisible();
+  const cards = mainWindow.locator('.module-settings li.module-card');
+  await expect(cards).toHaveCount(3);
+  await expect(
+    mainWindow.locator('.module-settings li:has-text("WhatsApp") button:has-text("+ Add")'),
+  ).toBeVisible();
+});
+
+test('add instance creates a sidebar entry with the module name', async ({ mainWindow }) => {
+  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.module-card:has-text("WhatsApp") button:has-text("+ Add")').click();
+  // The instance tag appears in settings.
+  await expect(mainWindow.locator('.instance-tag:has-text("WhatsApp")')).toBeVisible();
+  // And the sidebar shows an entry with the instance name.
+  await mainWindow.keyboard.press('Escape');
+  await expect(
+    mainWindow.locator('.sidebar .module-item:has-text("WhatsApp")'),
+  ).toBeVisible();
+});
+
+test('adding two instances of the same module gives unique names', async ({ mainWindow }) => {
+  await mainWindow.locator('.settings-btn').click();
+  const addBtn = mainWindow.locator('.module-card:has-text("WhatsApp") button:has-text("+ Add")');
+  await addBtn.click();
+  await addBtn.click();
+  await expect(mainWindow.locator('.instance-tag:has-text("WhatsApp 2")')).toBeVisible();
+  await mainWindow.keyboard.press('Escape');
+  await expect(
+    mainWindow.locator('.sidebar .module-item:has-text("WhatsApp 2")'),
+  ).toBeVisible();
+});
+
+test('sidebar instance can be renamed via double-click', async ({ mainWindow }) => {
+  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.module-card:has-text("Telegram") button:has-text("+ Add")').click();
+  await mainWindow.keyboard.press('Escape');
+
+  const item = mainWindow.locator('.sidebar .module-item:has-text("Telegram")');
+  await item.dblclick();
+
+  const input = mainWindow.locator('.instance-rename-input');
+  await expect(input).toBeVisible();
+  await input.fill('Personal');
+  await input.press('Enter');
+
+  await expect(
+    mainWindow.locator('.sidebar .module-item:has-text("Personal")'),
+  ).toBeVisible();
 });
 
 test('settings modal opens above the content area (not hidden by embeds)', async ({

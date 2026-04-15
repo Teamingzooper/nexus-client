@@ -2,11 +2,11 @@ import React from 'react';
 import { useNexus } from '../store';
 
 export function AppHeader() {
-  const activeId = useNexus((s) => s.state.activeModuleId);
-  const reloadActive = useNexus((s) => s.reloadActive);
-  const modules = useNexus((s) => s.modules);
+  const activeId = useNexus((s) => s.state.activeInstanceId);
+  const reloadActive = useNexus((s) => s.reloadActiveInstance);
+  const instances = useNexus((s) => s.state.instances);
 
-  const active = modules.find((m) => m.manifest.id === activeId);
+  const active = instances.find((i) => i.id === activeId);
 
   return (
     <header className="app-header" role="banner">
@@ -16,7 +16,7 @@ export function AppHeader() {
         </div>
         <div className="app-header-title">
           <span className="app-title">Nexus</span>
-          {active && <span className="app-subtitle"> · {active.manifest.name}</span>}
+          {active && <span className="app-subtitle"> · {active.name}</span>}
         </div>
       </div>
       <div className="app-header-right">

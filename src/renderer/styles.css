@@ -723,13 +723,73 @@ kbd {
 
 .module-settings li {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   padding: 12px;
   border: 1px solid var(--nx-border);
   border-radius: var(--nx-radius-sm);
   margin-bottom: 8px;
   gap: 12px;
+}
+
+.module-settings li.module-card .module-info-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.instance-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.instance-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--nx-sidebar);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-border);
+  border-radius: 999px;
+  padding: 3px 4px 3px 10px;
+  font-size: 11px;
+  max-width: 220px;
+}
+
+.instance-tag > span,
+.instance-tag {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.instance-tag-remove {
+  background: transparent;
+  border: none;
+  color: var(--nx-text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 999px;
+}
+
+.instance-tag-remove:hover {
+  color: var(--nx-badge);
+  background: color-mix(in srgb, var(--nx-badge) 16%, transparent);
+}
+
+.instance-rename-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--nx-bg);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 13px;
 }
 
 .module-info {

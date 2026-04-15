@@ -7,6 +7,7 @@ import type {
   UnreadUpdate,
   Bounds,
   SidebarLayout,
+  ModuleInstance,
 } from '../shared/types';
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string; details?: unknown };
@@ -25,11 +26,17 @@ async function invoke<T>(channel: string, payload?: unknown): Promise<T> {
 const api = {
   listModules: (): Promise<LoadedModule[]> => invoke(IPC.MODULES_LIST),
   reloadModules: (): Promise<LoadedModule[]> => invoke(IPC.MODULES_RELOAD),
-  activateModule: (id: string): Promise<void> => invoke(IPC.MODULES_ACTIVATE, id),
-  enableModule: (id: string): Promise<void> => invoke(IPC.MODULES_ENABLE, id),
-  disableModule: (id: string): Promise<void> => invoke(IPC.MODULES_DISABLE, id),
   openModulesDir: (): Promise<void> => invoke(IPC.MODULES_OPEN_DIR),
-  reloadActiveModule: (): Promise<void> => invoke(IPC.MODULES_RELOAD_ACTIVE),
+
+  addInstance: (moduleId: string): Promise<ModuleInstance> =>
+    invoke(IPC.INSTANCES_ADD, moduleId),
+  removeInstance: (instanceId: string): Promise<void> =>
+    invoke(IPC.INSTANCES_REMOVE, instanceId),
+  renameInstance: (instanceId: string, name: string): Promise<void> =>
+    invoke(IPC.INSTANCES_RENAME, { id: instanceId, name }),
+  activateInstance: (instanceId: string): Promise<void> =>
+    invoke(IPC.INSTANCES_ACTIVATE, instanceId),
+  reloadActiveInstance: (): Promise<void> => invoke(IPC.INSTANCES_RELOAD_ACTIVE),
 
   listThemes: (): Promise<Theme[]> => invoke(IPC.THEMES_LIST),
   setTheme: (id: string): Promise<void> => invoke(IPC.THEMES_SET, id),

@@ -1,11 +1,17 @@
 import React, { useMemo, useState } from 'react';
 import { useNexus } from '../store';
-import type { DropTarget, SidebarGroup, SidebarLayout } from '../../shared/types';
+import type {
+  DropTarget,
+  SidebarGroup,
+  SidebarLayout,
+  ModuleInstance,
+  LoadedModule,
+} from '../../shared/types';
 import {
   addGroup,
   defaultLayout,
   deleteGroup,
-  moveModule,
+  moveEntry,
   renameGroup,
   toggleCollapsed,
 } from '../../shared/sidebarLayout';
@@ -14,7 +20,7 @@ interface Props {
   onOpenSettings: () => void;
 }
 
-const DRAG_MIME = 'application/x-nexus-module';
+const DRAG_MIME = 'application/x-nexus-instance';
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 48);
@@ -22,39 +28,40 @@ function slugify(s: string): string {
 
 export function Sidebar({ onOpenSettings }: Props) {
   const modules = useNexus((s) => s.modules);
+  const instances = useNexus((s) => s.state.instances);
   const layout = useNexus((s) => s.state.sidebarLayout ?? defaultLayout());
-  const activeId = useNexus((s) => s.state.activeModuleId);
+  const activeId = useNexus((s) => s.state.activeInstanceId);
   const unread = useNexus((s) => s.unread);
-  const activate = useNexus((s) => s.activate);
-  const disable = useNexus((s) => s.disable);
+  const activate = useNexus((s) => s.activateInstance);
+  const removeInstance = useNexus((s) => s.removeInstance);
+  const renameInstance = useNexus((s) => s.renameInstance);
   const updateLayout = useNexus((s) => s.updateLayout);
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
+  const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
+
+  const instancesById = useMemo(() => {
+    const map = new Map<string, ModuleInstance>();
+    for (const i of instances) map.set(i.id, i);
+    return map;
+  }, [instances]);
 
   const modulesById = useMemo(() => {
-    const map = new Map<string, (typeof modules)[number]>();
+    const map = new Map<string, LoadedModule>();
     for (const m of modules) map.set(m.manifest.id, m);
     return map;
   }, [modules]);
-
-  const orderedShortcut = useMemo(() => {
-    const out: string[] = [];
-    for (const g of layout.groups) {
-      for (const id of g.moduleIds) out.push(id);
-    }
-    return out;
-  }, [layout]);
 
   const commit = (next: SidebarLayout) => {
     updateLayout(next).catch((err) => console.error('layout update failed', err));
   };
 
-  const onDragStart = (e: React.DragEvent, moduleId: string) => {
-    e.dataTransfer.setData(DRAG_MIME, moduleId);
+  const onDragStart = (e: React.DragEvent, instanceId: string) => {
+    e.dataTransfer.setData(DRAG_MIME, instanceId);
     e.dataTransfer.effectAllowed = 'move';
-    setDragId(moduleId);
+    setDragId(instanceId);
   };
 
   const onDragEnd = () => {
@@ -62,21 +69,21 @@ export function Sidebar({ onOpenSettings }: Props) {
     setDropHint(null);
   };
 
-  const onItemDragOver = (e: React.DragEvent, groupId: string, moduleId: string) => {
+  const onItemDragOver = (e: React.DragEvent, groupId: string, entryId: string) => {
     if (!e.dataTransfer.types.includes(DRAG_MIME)) return;
     e.preventDefault();
-    e.stopPropagation(); // prevent the group-level handler from overriding with "append"
+    e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const above = e.clientY < rect.top + rect.height / 2;
-    setDropHint(`${groupId}:${moduleId}:${above ? 'before' : 'after'}`);
+    setDropHint(`${groupId}:${entryId}:${above ? 'before' : 'after'}`);
   };
 
-  const onItemDrop = (e: React.DragEvent, groupId: string, moduleId: string) => {
+  const onItemDrop = (e: React.DragEvent, groupId: string, entryId: string) => {
     e.preventDefault();
     e.stopPropagation();
     const dragged = e.dataTransfer.getData(DRAG_MIME);
-    if (!dragged || dragged === moduleId) {
+    if (!dragged || dragged === entryId) {
       onDragEnd();
       return;
     }
@@ -85,9 +92,9 @@ export function Sidebar({ onOpenSettings }: Props) {
     const target: DropTarget = {
       kind: above ? 'before' : 'after',
       groupId,
-      moduleId,
+      entryId,
     };
-    commit(moveModule(layout, dragged, target));
+    commit(moveEntry(layout, dragged, target));
     onDragEnd();
   };
 
@@ -105,16 +112,15 @@ export function Sidebar({ onOpenSettings }: Props) {
       onDragEnd();
       return;
     }
-    commit(moveModule(layout, dragged, { kind: 'group-append', groupId }));
+    commit(moveEntry(layout, dragged, { kind: 'group-append', groupId }));
     onDragEnd();
   };
 
-  const onRemove = (moduleId: string) => {
-    disable(moduleId).catch((err) => console.error('disable failed', err));
+  const onRemove = (instanceId: string) => {
+    removeInstance(instanceId).catch((err) => console.error('remove failed', err));
   };
 
   const onAddGroup = () => {
-    // Pick a unique id/name ("Group", "Group 2", ...).
     const existingIds = new Set(layout.groups.map((g) => g.id));
     let n = layout.groups.length;
     let id: string;
@@ -124,8 +130,7 @@ export function Sidebar({ onOpenSettings }: Props) {
       name = n === 1 ? 'Group' : `Group ${n}`;
       id = slugify(name) || `group-${Date.now()}`;
     } while (existingIds.has(id));
-    commit(addGroup(layout, { id, name, moduleIds: [] }));
-    // Drop straight into rename mode for the new group.
+    commit(addGroup(layout, { id, name, entryIds: [] }));
     setEditingGroupId(id);
   };
 
@@ -134,6 +139,15 @@ export function Sidebar({ onOpenSettings }: Props) {
     const trimmed = name.trim();
     if (!trimmed) return;
     commit(renameGroup(layout, groupId, trimmed));
+  };
+
+  const onRenameInstance = (instanceId: string, name: string) => {
+    setEditingInstanceId(null);
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    renameInstance(instanceId, trimmed).catch((err) =>
+      console.error('rename failed', err),
+    );
   };
 
   const onToggleGroup = (groupId: string) => {
@@ -149,12 +163,12 @@ export function Sidebar({ onOpenSettings }: Props) {
     <nav className="sidebar" aria-label="Modules">
       <div className="sidebar-scroll">
         {layout.groups.map((group) => {
-          const visibleModules = group.moduleIds
-            .map((id) => modulesById.get(id))
-            .filter((m): m is NonNullable<typeof m> => !!m);
           const isEditing = editingGroupId === group.id;
-
+          const entries = group.entryIds
+            .map((id) => instancesById.get(id))
+            .filter((i): i is ModuleInstance => !!i);
           const isDropTarget = dropHint === `${group.id}:append`;
+
           return (
             <section
               key={group.id}
@@ -162,7 +176,6 @@ export function Sidebar({ onOpenSettings }: Props) {
               onDragOver={(e) => onGroupDragOver(e, group.id)}
               onDrop={(e) => onGroupDrop(e, group.id)}
               onDragLeave={(e) => {
-                // Only clear when leaving the section entirely, not child elements.
                 const rt = e.relatedTarget as Node | null;
                 if (!rt || !(e.currentTarget as Node).contains(rt)) {
                   setDropHint((h) => (h === `${group.id}:append` ? null : h));
@@ -206,7 +219,7 @@ export function Sidebar({ onOpenSettings }: Props) {
                     title="Double-click to rename"
                   >
                     {group.name}
-                    <span className="group-count">{visibleModules.length}</span>
+                    <span className="group-count">{entries.length}</span>
                   </button>
                 )}
                 {layout.groups.length > 1 && (
@@ -222,71 +235,99 @@ export function Sidebar({ onOpenSettings }: Props) {
               </header>
               {!group.collapsed && (
                 <ul className="module-list" role="list">
-                  {visibleModules.map((m) => {
-                    const count = unread[m.manifest.id] ?? 0;
-                    const isActive = activeId === m.manifest.id;
-                    const shortcutIdx = orderedShortcut.indexOf(m.manifest.id);
-                    const shortcut =
-                      shortcutIdx >= 0 && shortcutIdx < 9 ? `⌘${shortcutIdx + 1}` : '';
-                    const hintKey = `${group.id}:${m.manifest.id}`;
+                  {entries.map((instance) => {
+                    const m = modulesById.get(instance.moduleId);
+                    const count = unread[instance.id] ?? 0;
+                    const isActive = activeId === instance.id;
+                    const hintKey = `${group.id}:${instance.id}`;
                     const showAbove = dropHint === `${hintKey}:before`;
                     const showBelow = dropHint === `${hintKey}:after`;
                     const dropPos = showAbove ? 'before' : showBelow ? 'after' : null;
+                    const isRenaming = editingInstanceId === instance.id;
                     return (
                       <li
-                        key={m.manifest.id}
-                        className={`module-li ${dragId === m.manifest.id ? 'dragging' : ''}`}
+                        key={instance.id}
+                        className={`module-li ${dragId === instance.id ? 'dragging' : ''}`}
                         data-drop={dropPos ?? undefined}
-                        onDragOver={(e) => onItemDragOver(e, group.id, m.manifest.id)}
-                        onDrop={(e) => onItemDrop(e, group.id, m.manifest.id)}
+                        onDragOver={(e) => onItemDragOver(e, group.id, instance.id)}
+                        onDrop={(e) => onItemDrop(e, group.id, instance.id)}
                       >
                         <div
                           className={`module-item ${isActive ? 'active' : ''}`}
-                          draggable
-                          onDragStart={(e) => onDragStart(e, m.manifest.id)}
+                          draggable={!isRenaming}
+                          onDragStart={(e) => onDragStart(e, instance.id)}
                           onDragEnd={onDragEnd}
-                          onClick={() => activate(m.manifest.id)}
+                          onClick={() => {
+                            if (!isRenaming) activate(instance.id);
+                          }}
+                          onDoubleClick={(e) => {
+                            e.preventDefault();
+                            setEditingInstanceId(instance.id);
+                          }}
                           role="button"
                           tabIndex={0}
                           onKeyDown={(e) => {
+                            if (isRenaming) return;
                             if (e.key === 'Enter' || e.key === ' ') {
                               e.preventDefault();
-                              activate(m.manifest.id);
+                              activate(instance.id);
+                            }
+                            if (e.key === 'F2') {
+                              e.preventDefault();
+                              setEditingInstanceId(instance.id);
                             }
                           }}
-                          title={`${m.manifest.name}${shortcut ? ` (${shortcut})` : ''}`}
+                          title={`${instance.name} — double-click to rename`}
                           aria-pressed={isActive}
                         >
                           <span className="module-icon" aria-hidden="true">
-                            {m.iconDataUrl ? (
+                            {m?.iconDataUrl ? (
                               <img src={m.iconDataUrl} alt="" draggable={false} />
                             ) : (
-                              <span>{m.manifest.name.slice(0, 1)}</span>
+                              <span>{instance.name.slice(0, 1).toUpperCase()}</span>
                             )}
                           </span>
-                          <span className="module-name">{m.manifest.name}</span>
-                          {count > 0 && (
+                          {isRenaming ? (
+                            <input
+                              autoFocus
+                              className="instance-rename-input"
+                              defaultValue={instance.name}
+                              onFocus={(e) => e.currentTarget.select()}
+                              onClick={(e) => e.stopPropagation()}
+                              onBlur={(e) => onRenameInstance(instance.id, e.target.value)}
+                              onKeyDown={(e) => {
+                                e.stopPropagation();
+                                if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                if (e.key === 'Escape') setEditingInstanceId(null);
+                              }}
+                            />
+                          ) : (
+                            <span className="module-name">{instance.name}</span>
+                          )}
+                          {count > 0 && !isRenaming && (
                             <span className="badge" aria-label={`${count} unread`}>
                               {count > 99 ? '99+' : count}
                             </span>
                           )}
-                          <button
-                            className="module-remove"
-                            title="Remove from sidebar"
-                            aria-label={`Remove ${m.manifest.name}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRemove(m.manifest.id);
-                            }}
-                          >
-                            ×
-                          </button>
+                          {!isRenaming && (
+                            <button
+                              className="module-remove"
+                              title="Remove from sidebar"
+                              aria-label={`Remove ${instance.name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemove(instance.id);
+                              }}
+                            >
+                              ×
+                            </button>
+                          )}
                         </div>
                       </li>
                     );
                   })}
-                  {visibleModules.length === 0 && (
-                    <li className="group-empty">Drop a module here</li>
+                  {entries.length === 0 && (
+                    <li className="group-empty">Drop an instance here</li>
                   )}
                 </ul>
               )}

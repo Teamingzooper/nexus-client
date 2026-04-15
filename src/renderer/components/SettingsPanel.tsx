@@ -11,10 +11,10 @@ type Tab = 'modules' | 'themes' | 'about';
 export function SettingsPanel({ onClose }: Props) {
   const [tab, setTab] = useState<Tab>('modules');
   const modules = useNexus((s) => s.modules);
-  const enabled = useNexus((s) => s.state.enabledModuleIds);
-  const enableModule = useNexus((s) => s.enable);
-  const disableModule = useNexus((s) => s.disable);
-  const reload = useNexus((s) => s.reload);
+  const instances = useNexus((s) => s.state.instances);
+  const addInstance = useNexus((s) => s.addInstance);
+  const removeInstance = useNexus((s) => s.removeInstance);
+  const reload = useNexus((s) => s.reloadModules);
 
   useEffect(() => {
     window.nexus.setViewsSuspended(true).catch(() => {});
@@ -72,11 +72,16 @@ export function SettingsPanel({ onClose }: Props) {
                   Open modules folder
                 </button>
               </div>
+              <p className="editor-hint">
+                A <strong>module</strong> is the template for a messaging service. You can add
+                multiple <strong>instances</strong> of any module to log in with separate accounts —
+                e.g. two WhatsApps, one work, one personal.
+              </p>
               <ul className="module-settings" role="list">
                 {modules.map((m) => {
-                  const on = enabled.includes(m.manifest.id);
+                  const myInstances = instances.filter((i) => i.moduleId === m.manifest.id);
                   return (
-                    <li key={m.manifest.id}>
+                    <li key={m.manifest.id} className="module-card">
                       <div className="module-info">
                         {m.iconDataUrl ? (
                           <img src={m.iconDataUrl} alt="" />
@@ -85,7 +90,7 @@ export function SettingsPanel({ onClose }: Props) {
                             {m.manifest.name.slice(0, 1)}
                           </div>
                         )}
-                        <div>
+                        <div className="module-info-text">
                           <div className="module-name">{m.manifest.name}</div>
                           <div className="module-meta">
                             v{m.manifest.version}
@@ -94,16 +99,30 @@ export function SettingsPanel({ onClose }: Props) {
                           {m.manifest.description && (
                             <div className="module-desc">{m.manifest.description}</div>
                           )}
+                          {myInstances.length > 0 && (
+                            <div className="instance-tags">
+                              {myInstances.map((i) => (
+                                <span key={i.id} className="instance-tag" title={i.id}>
+                                  {i.name}
+                                  <button
+                                    className="instance-tag-remove"
+                                    onClick={() => removeInstance(i.id)}
+                                    aria-label={`Remove ${i.name}`}
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <button
-                        className={on ? 'toggle on' : 'toggle'}
-                        onClick={() =>
-                          on ? disableModule(m.manifest.id) : enableModule(m.manifest.id)
-                        }
-                        aria-pressed={on}
+                        className="toggle on"
+                        onClick={() => addInstance(m.manifest.id)}
+                        title={`Add another instance of ${m.manifest.name}`}
                       >
-                        {on ? 'Enabled' : 'Enable'}
+                        + Add
                       </button>
                     </li>
                   );
@@ -133,7 +152,11 @@ export function SettingsPanel({ onClose }: Props) {
                 <dt>
                   <kbd>⌘1</kbd>–<kbd>⌘9</kbd>
                 </dt>
-                <dd>Jump to module</dd>
+                <dd>Jump to sidebar instance</dd>
+                <dt>
+                  <kbd>F2</kbd>
+                </dt>
+                <dd>Rename selected sidebar item</dd>
                 <dt>
                   <kbd>Esc</kbd>
                 </dt>

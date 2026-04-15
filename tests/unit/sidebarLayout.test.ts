@@ -4,9 +4,9 @@ import {
   defaultLayout,
   deleteGroup,
   findGroup,
-  moveModule,
+  moveEntry,
   reconcile,
-  removeModule,
+  removeEntry,
   renameGroup,
   reorderGroups,
   toggleCollapsed,
@@ -16,118 +16,125 @@ describe('defaultLayout', () => {
   it('has one empty group', () => {
     const l = defaultLayout();
     expect(l.groups).toHaveLength(1);
-    expect(l.groups[0].moduleIds).toEqual([]);
+    expect(l.groups[0].entryIds).toEqual([]);
   });
 });
 
 describe('reconcile', () => {
-  it('appends new enabled modules to the first group', () => {
+  it('appends new valid entries to the first group', () => {
     const l = defaultLayout();
     const out = reconcile(l, ['whatsapp', 'telegram']);
-    expect(out.groups[0].moduleIds).toEqual(['whatsapp', 'telegram']);
+    expect(out.groups[0].entryIds).toEqual(['whatsapp', 'telegram']);
   });
 
-  it('prunes disabled modules from all groups', () => {
+  it('prunes invalid ids from all groups', () => {
     const l = {
       groups: [
-        { id: 'a', name: 'A', moduleIds: ['whatsapp', 'telegram'] },
-        { id: 'b', name: 'B', moduleIds: ['messenger'] },
+        { id: 'a', name: 'A', entryIds: ['whatsapp', 'telegram'] },
+        { id: 'b', name: 'B', entryIds: ['messenger'] },
       ],
     };
     const out = reconcile(l, ['whatsapp']);
-    expect(out.groups[0].moduleIds).toEqual(['whatsapp']);
-    expect(out.groups[1].moduleIds).toEqual([]);
+    expect(out.groups[0].entryIds).toEqual(['whatsapp']);
+    expect(out.groups[1].entryIds).toEqual([]);
   });
 
   it('deduplicates if the same id appears in two groups', () => {
     const l = {
       groups: [
-        { id: 'a', name: 'A', moduleIds: ['whatsapp'] },
-        { id: 'b', name: 'B', moduleIds: ['whatsapp'] },
+        { id: 'a', name: 'A', entryIds: ['whatsapp'] },
+        { id: 'b', name: 'B', entryIds: ['whatsapp'] },
       ],
     };
     const out = reconcile(l, ['whatsapp']);
-    expect(out.groups[0].moduleIds).toEqual(['whatsapp']);
-    expect(out.groups[1].moduleIds).toEqual([]);
+    expect(out.groups[0].entryIds).toEqual(['whatsapp']);
+    expect(out.groups[1].entryIds).toEqual([]);
   });
 
   it('creates a default group when layout has none', () => {
     const out = reconcile({ groups: [] as any }, ['whatsapp']);
     expect(out.groups).toHaveLength(1);
-    expect(out.groups[0].moduleIds).toEqual(['whatsapp']);
+    expect(out.groups[0].entryIds).toEqual(['whatsapp']);
   });
 });
 
-describe('moveModule', () => {
+describe('moveEntry', () => {
   const base = {
     groups: [
-      { id: 'a', name: 'A', moduleIds: ['whatsapp', 'telegram', 'signal'] },
-      { id: 'b', name: 'B', moduleIds: ['messenger'] },
+      { id: 'a', name: 'A', entryIds: ['whatsapp', 'telegram', 'signal'] },
+      { id: 'b', name: 'B', entryIds: ['messenger'] },
     ],
   };
 
   it('moves within a group (before)', () => {
-    const out = moveModule(base, 'signal', { kind: 'before', groupId: 'a', moduleId: 'whatsapp' });
-    expect(out.groups[0].moduleIds).toEqual(['signal', 'whatsapp', 'telegram']);
+    const out = moveEntry(base, 'signal', {
+      kind: 'before',
+      groupId: 'a',
+      entryId: 'whatsapp',
+    });
+    expect(out.groups[0].entryIds).toEqual(['signal', 'whatsapp', 'telegram']);
   });
 
   it('moves within a group (after)', () => {
-    const out = moveModule(base, 'whatsapp', { kind: 'after', groupId: 'a', moduleId: 'signal' });
-    expect(out.groups[0].moduleIds).toEqual(['telegram', 'signal', 'whatsapp']);
+    const out = moveEntry(base, 'whatsapp', {
+      kind: 'after',
+      groupId: 'a',
+      entryId: 'signal',
+    });
+    expect(out.groups[0].entryIds).toEqual(['telegram', 'signal', 'whatsapp']);
   });
 
   it('moves across groups', () => {
-    const out = moveModule(base, 'signal', { kind: 'group-append', groupId: 'b' });
-    expect(out.groups[0].moduleIds).toEqual(['whatsapp', 'telegram']);
-    expect(out.groups[1].moduleIds).toEqual(['messenger', 'signal']);
+    const out = moveEntry(base, 'signal', { kind: 'group-append', groupId: 'b' });
+    expect(out.groups[0].entryIds).toEqual(['whatsapp', 'telegram']);
+    expect(out.groups[1].entryIds).toEqual(['messenger', 'signal']);
   });
 
   it('moves before a specific item in another group', () => {
-    const out = moveModule(base, 'telegram', {
+    const out = moveEntry(base, 'telegram', {
       kind: 'before',
       groupId: 'b',
-      moduleId: 'messenger',
+      entryId: 'messenger',
     });
-    expect(out.groups[0].moduleIds).toEqual(['whatsapp', 'signal']);
-    expect(out.groups[1].moduleIds).toEqual(['telegram', 'messenger']);
+    expect(out.groups[0].entryIds).toEqual(['whatsapp', 'signal']);
+    expect(out.groups[1].entryIds).toEqual(['telegram', 'messenger']);
   });
 
   it('is a no-op when dropping on itself', () => {
-    // Removed then re-inserted at same spot yields same order.
-    const out = moveModule(base, 'whatsapp', {
+    const out = moveEntry(base, 'whatsapp', {
       kind: 'before',
       groupId: 'a',
-      moduleId: 'telegram',
+      entryId: 'telegram',
     });
-    expect(out.groups[0].moduleIds).toEqual(['whatsapp', 'telegram', 'signal']);
+    expect(out.groups[0].entryIds).toEqual(['whatsapp', 'telegram', 'signal']);
   });
 });
 
-describe('removeModule', () => {
-  it('removes from wherever the module lives', () => {
+describe('removeEntry', () => {
+  it('removes from wherever the entry lives', () => {
     const l = {
       groups: [
-        { id: 'a', name: 'A', moduleIds: ['whatsapp'] },
-        { id: 'b', name: 'B', moduleIds: ['telegram'] },
+        { id: 'a', name: 'A', entryIds: ['whatsapp'] },
+        { id: 'b', name: 'B', entryIds: ['telegram'] },
       ],
     };
-    expect(removeModule(l, 'telegram').groups[1].moduleIds).toEqual([]);
-    expect(removeModule(l, 'whatsapp').groups[0].moduleIds).toEqual([]);
+    expect(removeEntry(l, 'telegram').groups[1].entryIds).toEqual([]);
+    expect(removeEntry(l, 'whatsapp').groups[0].entryIds).toEqual([]);
   });
 });
 
 describe('addGroup', () => {
   it('appends a new group', () => {
     const l = defaultLayout();
-    const out = addGroup(l, { id: 'work', name: 'Work', moduleIds: [] });
+    const out = addGroup(l, { id: 'work', name: 'Work', entryIds: [] });
     expect(out.groups).toHaveLength(2);
     expect(out.groups[1].id).toBe('work');
   });
 
   it('is a no-op when id already exists', () => {
     const l = defaultLayout();
-    const once = addGroup(l, { id: 'work', name: 'Work', moduleIds: [] });
-    const twice = addGroup(once, { id: 'work', name: 'Other', moduleIds: [] });
+    const once = addGroup(l, { id: 'work', name: 'Work', entryIds: [] });
+    const twice = addGroup(once, { id: 'work', name: 'Other', entryIds: [] });
     expect(twice.groups).toHaveLength(2);
     expect(twice.groups[1].name).toBe('Work');
   });
@@ -135,7 +142,7 @@ describe('addGroup', () => {
 
 describe('renameGroup', () => {
   it('updates only the target group', () => {
-    const l = addGroup(defaultLayout(), { id: 'work', name: 'Work', moduleIds: [] });
+    const l = addGroup(defaultLayout(), { id: 'work', name: 'Work', entryIds: [] });
     const out = renameGroup(l, 'work', 'Professional');
     expect(out.groups[1].name).toBe('Professional');
     expect(out.groups[0].name).toBe('Modules');
@@ -153,16 +160,16 @@ describe('toggleCollapsed', () => {
 });
 
 describe('deleteGroup', () => {
-  it('moves modules from the deleted group to the first remaining', () => {
+  it('moves entries from the deleted group to the first remaining', () => {
     const l = {
       groups: [
-        { id: 'a', name: 'A', moduleIds: ['whatsapp'] },
-        { id: 'b', name: 'B', moduleIds: ['telegram', 'messenger'] },
+        { id: 'a', name: 'A', entryIds: ['whatsapp'] },
+        { id: 'b', name: 'B', entryIds: ['telegram', 'messenger'] },
       ],
     };
     const out = deleteGroup(l, 'b');
     expect(out.groups).toHaveLength(1);
-    expect(out.groups[0].moduleIds).toEqual(['whatsapp', 'telegram', 'messenger']);
+    expect(out.groups[0].entryIds).toEqual(['whatsapp', 'telegram', 'messenger']);
   });
 
   it('refuses to delete the only remaining group', () => {
@@ -176,9 +183,9 @@ describe('reorderGroups', () => {
   it('reorders groups by id', () => {
     const l = {
       groups: [
-        { id: 'a', name: 'A', moduleIds: [] },
-        { id: 'b', name: 'B', moduleIds: [] },
-        { id: 'c', name: 'C', moduleIds: [] },
+        { id: 'a', name: 'A', entryIds: [] },
+        { id: 'b', name: 'B', entryIds: [] },
+        { id: 'c', name: 'C', entryIds: [] },
       ],
     };
     const out = reorderGroups(l, ['c', 'a', 'b']);
@@ -188,8 +195,8 @@ describe('reorderGroups', () => {
   it('appends unknown-to-order groups at the end', () => {
     const l = {
       groups: [
-        { id: 'a', name: 'A', moduleIds: [] },
-        { id: 'b', name: 'B', moduleIds: [] },
+        { id: 'a', name: 'A', entryIds: [] },
+        { id: 'b', name: 'B', entryIds: [] },
       ],
     };
     const out = reorderGroups(l, ['b']);
@@ -198,11 +205,11 @@ describe('reorderGroups', () => {
 });
 
 describe('findGroup', () => {
-  it('returns the group containing a module', () => {
+  it('returns the group containing an entry', () => {
     const l = {
       groups: [
-        { id: 'a', name: 'A', moduleIds: ['whatsapp'] },
-        { id: 'b', name: 'B', moduleIds: ['telegram'] },
+        { id: 'a', name: 'A', entryIds: ['whatsapp'] },
+        { id: 'b', name: 'B', entryIds: ['telegram'] },
       ],
     };
     expect(findGroup(l, 'telegram')?.id).toBe('b');

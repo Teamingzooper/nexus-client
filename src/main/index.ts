@@ -53,20 +53,21 @@ async function bootstrap(): Promise<void> {
   const views = container.get<ViewService>('views');
   const registry = container.get<ModuleRegistryService>('modules');
 
-  // Warm up enabled modules after the window paints so the first frame isn't delayed.
+  // Warm up existing instances after the window paints so the first frame isn't delayed.
   win.once('ready-to-show', () => {
     setImmediate(() => {
-      for (const id of settings.state.enabledModuleIds) {
-        if (registry.get(id)) {
+      for (const instance of settings.state.instances) {
+        if (registry.get(instance.moduleId)) {
           try {
-            views.ensure(id);
+            views.ensure(instance.id);
           } catch (err) {
-            rootLogger.warn(`failed to warm ${id}`, err);
+            rootLogger.warn(`failed to warm ${instance.id}`, err);
           }
         }
       }
-      if (settings.state.activeModuleId && registry.get(settings.state.activeModuleId)) {
-        views.activate(settings.state.activeModuleId);
+      const activeId = settings.state.activeInstanceId;
+      if (activeId && settings.getInstance(activeId)) {
+        views.activate(activeId);
       }
     });
   });

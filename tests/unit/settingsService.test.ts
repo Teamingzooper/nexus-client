@@ -40,43 +40,77 @@ describe('SettingsService', () => {
   it('starts with defaults when no file exists', async () => {
     const s = new SettingsService();
     await s.init(makeCtx(tmp));
-    expect(s.state.activeModuleId).toBeNull();
-    expect(s.state.enabledModuleIds).toEqual([]);
+    expect(s.state.activeInstanceId).toBeNull();
+    expect(s.state.instances).toEqual([]);
     expect(s.state.themeId).toBe('nexus-dark');
     await s.dispose();
   });
 
-  it('persists enableModule calls across instances', async () => {
+  it('addInstance creates an instance with module id when first of its kind', async () => {
+    const s = new SettingsService();
+    await s.init(makeCtx(tmp));
+    const inst = s.addInstance('whatsapp', 'WhatsApp');
+    expect(inst.id).toBe('whatsapp');
+    expect(inst.moduleId).toBe('whatsapp');
+    expect(inst.name).toBe('WhatsApp');
+    expect(s.state.instances).toHaveLength(1);
+    await s.dispose();
+  });
+
+  it('addInstance twice gives unique ids and unique default names', async () => {
+    const s = new SettingsService();
+    await s.init(makeCtx(tmp));
+    const a = s.addInstance('whatsapp', 'WhatsApp');
+    const b = s.addInstance('whatsapp', 'WhatsApp');
+    expect(a.id).toBe('whatsapp');
+    expect(b.id).toBe('whatsapp-2');
+    expect(a.name).toBe('WhatsApp');
+    expect(b.name).toBe('WhatsApp 2');
+    await s.dispose();
+  });
+
+  it('removeInstance drops the instance and clears active if matching', async () => {
+    const s = new SettingsService();
+    await s.init(makeCtx(tmp));
+    s.addInstance('whatsapp', 'WhatsApp');
+    s.setActive('whatsapp');
+    s.removeInstance('whatsapp');
+    expect(s.state.activeInstanceId).toBeNull();
+    expect(s.state.instances).toEqual([]);
+    await s.dispose();
+  });
+
+  it('renameInstance updates the name', async () => {
+    const s = new SettingsService();
+    await s.init(makeCtx(tmp));
+    s.addInstance('whatsapp', 'WhatsApp');
+    s.renameInstance('whatsapp', 'Work');
+    expect(s.state.instances[0].name).toBe('Work');
+    await s.dispose();
+  });
+
+  it('renameInstance ignores blank names', async () => {
+    const s = new SettingsService();
+    await s.init(makeCtx(tmp));
+    s.addInstance('whatsapp', 'WhatsApp');
+    s.renameInstance('whatsapp', '   ');
+    expect(s.state.instances[0].name).toBe('WhatsApp');
+    await s.dispose();
+  });
+
+  it('persists instances across reload', async () => {
     const s1 = new SettingsService();
     await s1.init(makeCtx(tmp));
-    s1.enableModule('whatsapp');
-    s1.enableModule('telegram');
+    s1.addInstance('whatsapp', 'WhatsApp');
+    s1.addInstance('whatsapp', 'WhatsApp');
+    s1.renameInstance('whatsapp-2', 'Work');
     await s1.dispose();
 
     const s2 = new SettingsService();
     await s2.init(makeCtx(tmp));
-    expect(s2.state.enabledModuleIds).toEqual(['whatsapp', 'telegram']);
+    expect(s2.state.instances.map((i) => i.id)).toEqual(['whatsapp', 'whatsapp-2']);
+    expect(s2.state.instances[1].name).toBe('Work');
     await s2.dispose();
-  });
-
-  it('disableModule also clears activeModuleId if it matches', async () => {
-    const s = new SettingsService();
-    await s.init(makeCtx(tmp));
-    s.enableModule('whatsapp');
-    s.setActive('whatsapp');
-    s.disableModule('whatsapp');
-    expect(s.state.activeModuleId).toBeNull();
-    expect(s.state.enabledModuleIds).toEqual([]);
-    await s.dispose();
-  });
-
-  it('enableModule is idempotent', async () => {
-    const s = new SettingsService();
-    await s.init(makeCtx(tmp));
-    s.enableModule('whatsapp');
-    s.enableModule('whatsapp');
-    expect(s.state.enabledModuleIds).toEqual(['whatsapp']);
-    await s.dispose();
   });
 
   it('setWindowState persists and survives reload', async () => {
@@ -110,10 +144,62 @@ describe('SettingsService', () => {
   it('ignores schema-invalid state and reverts to defaults', async () => {
     const file = path.join(tmp, 'nexus-state.json');
     await fs.mkdir(tmp, { recursive: true });
-    await fs.writeFile(file, JSON.stringify({ enabledModuleIds: 'not-array' }), 'utf8');
+    await fs.writeFile(file, JSON.stringify({ instances: 'not-array' }), 'utf8');
     const s = new SettingsService();
     await s.init(makeCtx(tmp));
-    expect(s.state.enabledModuleIds).toEqual([]);
+    expect(s.state.instances).toEqual([]);
+    await s.dispose();
+  });
+
+  describe('legacy state migration', () => {
+    it('migrates enabledModuleIds → instances on load', async () => {
+      const file = path.join(tmp, 'nexus-state.json');
+      await fs.mkdir(tmp, { recursive: true });
+      await fs.writeFile(
+        file,
+        JSON.stringify({
+          activeModuleId: 'whatsapp',
+          enabledModuleIds: ['whatsapp', 'telegram'],
+          themeId: 'nexus-dark',
+        }),
+        'utf8',
+      );
+      const s = new SettingsService();
+      await s.init(makeCtx(tmp));
+      expect(s.state.instances.map((i) => i.id)).toEqual(['whatsapp', 'telegram']);
+      expect(s.state.activeInstanceId).toBe('whatsapp');
+      await s.dispose();
+    });
+
+    it('migrates sidebarLayout moduleIds → entryIds on load', async () => {
+      const file = path.join(tmp, 'nexus-state.json');
+      await fs.mkdir(tmp, { recursive: true });
+      await fs.writeFile(
+        file,
+        JSON.stringify({
+          activeModuleId: null,
+          enabledModuleIds: ['whatsapp'],
+          themeId: 'nexus-dark',
+          sidebarLayout: {
+            groups: [{ id: 'main', name: 'Modules', moduleIds: ['whatsapp'] }],
+          },
+        }),
+        'utf8',
+      );
+      const s = new SettingsService();
+      await s.init(makeCtx(tmp));
+      expect(s.state.sidebarLayout?.groups[0].entryIds).toEqual(['whatsapp']);
+      await s.dispose();
+    });
+  });
+
+  it('sidebar layout auto-reconciles when a new instance is added', async () => {
+    const s = new SettingsService();
+    await s.init(makeCtx(tmp));
+    s.addInstance('whatsapp', 'WhatsApp');
+    expect(s.state.sidebarLayout?.groups[0].entryIds).toEqual(['whatsapp']);
+    s.addInstance('whatsapp', 'WhatsApp');
+    expect(s.state.sidebarLayout?.groups[0].entryIds).toEqual(['whatsapp', 'whatsapp-2']);
     await s.dispose();
   });
 });

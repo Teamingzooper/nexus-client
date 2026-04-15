@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import type { LoadedModule, Theme, AppState, SidebarLayout } from '../shared/types';
+import type {
+  LoadedModule,
+  Theme,
+  AppState,
+  SidebarLayout,
+  ModuleInstance,
+} from '../shared/types';
 import { defaultLayout } from '../shared/sidebarLayout';
 
 interface NexusStore {
@@ -12,26 +18,34 @@ interface NexusStore {
   previewTheme: Theme | null;
 
   init(): Promise<void>;
-  activate(id: string): Promise<void>;
-  enable(id: string): Promise<void>;
-  disable(id: string): Promise<void>;
-  reload(): Promise<void>;
-  reloadActive(): Promise<void>;
+  activateInstance(instanceId: string): Promise<void>;
+  addInstance(moduleId: string): Promise<ModuleInstance>;
+  removeInstance(instanceId: string): Promise<void>;
+  renameInstance(instanceId: string, name: string): Promise<void>;
+  reloadModules(): Promise<void>;
+  reloadActiveInstance(): Promise<void>;
   setTheme(id: string): Promise<void>;
   saveTheme(theme: Theme): Promise<void>;
   deleteTheme(id: string): Promise<void>;
-  exportThemePack(ids: string[], meta?: { name?: string; author?: string }): Promise<{ canceled: boolean; path?: string; count?: number }>;
+  exportThemePack(
+    ids: string[],
+    meta?: { name?: string; author?: string },
+  ): Promise<{ canceled: boolean; path?: string; count?: number }>;
   importThemePack(): Promise<{ canceled: boolean; added?: Theme[] }>;
   setPreviewTheme(theme: Theme | null): void;
   updateLayout(layout: SidebarLayout): Promise<void>;
 }
 
 const DEFAULT_STATE: AppState = {
-  activeModuleId: null,
-  enabledModuleIds: [],
+  activeInstanceId: null,
+  instances: [],
   themeId: 'nexus-dark',
   sidebarLayout: defaultLayout(),
 };
+
+async function refreshState(): Promise<AppState> {
+  return window.nexus.getState();
+}
 
 export const useNexus = create<NexusStore>((set, get) => ({
   modules: [],
@@ -60,42 +74,42 @@ export const useNexus = create<NexusStore>((set, get) => ({
     }
   },
 
-  async activate(id) {
-    await window.nexus.activateModule(id);
-    set((s) => ({
-      state: {
-        ...s.state,
-        activeModuleId: id,
-        enabledModuleIds: s.state.enabledModuleIds.includes(id)
-          ? s.state.enabledModuleIds
-          : [...s.state.enabledModuleIds, id],
-      },
-    }));
-  },
-
-  async enable(id) {
-    await window.nexus.enableModule(id);
-    const state = await window.nexus.getState();
+  async activateInstance(instanceId) {
+    await window.nexus.activateInstance(instanceId);
+    const state = await refreshState();
     set({ state });
   },
 
-  async disable(id) {
-    await window.nexus.disableModule(id);
-    const state = await window.nexus.getState();
+  async addInstance(moduleId) {
+    const instance = await window.nexus.addInstance(moduleId);
+    const state = await refreshState();
+    set({ state });
+    return instance;
+  },
+
+  async removeInstance(instanceId) {
+    await window.nexus.removeInstance(instanceId);
+    const state = await refreshState();
     set((s) => {
       const unread = { ...s.unread };
-      delete unread[id];
+      delete unread[instanceId];
       return { state, unread };
     });
   },
 
-  async reload() {
+  async renameInstance(instanceId, name) {
+    await window.nexus.renameInstance(instanceId, name);
+    const state = await refreshState();
+    set({ state });
+  },
+
+  async reloadModules() {
     const modules = await window.nexus.reloadModules();
     set({ modules });
   },
 
-  async reloadActive() {
-    await window.nexus.reloadActiveModule();
+  async reloadActiveInstance() {
+    await window.nexus.reloadActiveInstance();
   },
 
   async setTheme(id) {
@@ -139,8 +153,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
       const saved = await window.nexus.updateSidebarLayout(layout);
       set((s) => ({ state: { ...s.state, sidebarLayout: saved } }));
     } catch (err) {
-      // Revert on failure by re-fetching.
-      const state = await window.nexus.getState();
+      const state = await refreshState();
       set({ state });
       throw err;
     }

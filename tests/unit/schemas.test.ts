@@ -138,17 +138,17 @@ describe('moduleIdSchema', () => {
 describe('appStateSchema', () => {
   it('accepts defaults', () => {
     const res = appStateSchema.safeParse({
-      activeModuleId: null,
-      enabledModuleIds: [],
+      activeInstanceId: null,
+      instances: [],
       themeId: 'nexus-dark',
     });
     expect(res.success).toBe(true);
   });
 
-  it('accepts window state', () => {
+  it('accepts instances and window state', () => {
     const res = appStateSchema.safeParse({
-      activeModuleId: 'whatsapp',
-      enabledModuleIds: ['whatsapp'],
+      activeInstanceId: 'whatsapp',
+      instances: [{ id: 'whatsapp', moduleId: 'whatsapp', name: 'WhatsApp' }],
       themeId: 'nexus-dark',
       windowState: { width: 1200, height: 800, maximized: true },
     });

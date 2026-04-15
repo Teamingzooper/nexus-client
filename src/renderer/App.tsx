@@ -15,11 +15,10 @@ export function App() {
   const themes = useNexus((s) => s.themes);
   const themeId = useNexus((s) => s.state.themeId);
   const previewTheme = useNexus((s) => s.previewTheme);
-  const activeModuleId = useNexus((s) => s.state.activeModuleId);
-  const modules = useNexus((s) => s.modules);
-  const enabledIds = useNexus((s) => s.state.enabledModuleIds);
-  const activate = useNexus((s) => s.activate);
-  const reloadActive = useNexus((s) => s.reloadActive);
+  const activeInstanceId = useNexus((s) => s.state.activeInstanceId);
+  const layout = useNexus((s) => s.state.sidebarLayout);
+  const activateInstance = useNexus((s) => s.activateInstance);
+  const reloadActiveInstance = useNexus((s) => s.reloadActiveInstance);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -31,10 +30,15 @@ export function App() {
     if (theme) applyTheme(theme);
   }, [themes, themeId, previewTheme]);
 
-  const enabled = useMemo(
-    () => modules.filter((m) => enabledIds.includes(m.manifest.id)),
-    [modules, enabledIds],
-  );
+  const flattenedInstanceIds = useMemo(() => {
+    if (!layout) return [] as string[];
+    const out: string[] = [];
+    for (const g of layout.groups) {
+      if (g.collapsed) continue;
+      for (const id of g.entryIds) out.push(id);
+    }
+    return out;
+  }, [layout]);
 
   useShortcuts([
     {
@@ -46,17 +50,17 @@ export function App() {
     {
       mod: true,
       key: 'r',
-      run: () => reloadActive(),
-      description: 'Reload active module',
+      run: () => reloadActiveInstance(),
+      description: 'Reload active instance',
     },
     ...Array.from({ length: 9 }, (_, i) => ({
       mod: true,
       key: String(i + 1),
       run: () => {
-        const target = enabled[i];
-        if (target) activate(target.manifest.id);
+        const target = flattenedInstanceIds[i];
+        if (target) activateInstance(target);
       },
-      description: `Activate module ${i + 1}`,
+      description: `Activate instance ${i + 1}`,
     })),
   ]);
 
@@ -82,7 +86,7 @@ export function App() {
         <AppHeader />
         <div className="app-body">
           <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
-          <ContentArea hasActive={!!activeModuleId} />
+          <ContentArea hasActive={!!activeInstanceId} />
         </div>
         {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       </div>

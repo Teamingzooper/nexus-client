@@ -1,18 +1,60 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { appStateSchema } from '../../shared/schemas';
-import type { AppState, SidebarLayout } from '../../shared/types';
+import type { AppState, ModuleInstance, SidebarLayout } from '../../shared/types';
 import { defaultLayout, reconcile } from '../../shared/sidebarLayout';
+import { nextInstanceId, nextInstanceName } from '../../shared/instance';
 import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 
 const DEFAULT_STATE: AppState = {
-  activeModuleId: null,
-  enabledModuleIds: [],
+  activeInstanceId: null,
+  instances: [],
   themeId: 'nexus-dark',
   sidebarLayout: defaultLayout(),
   windowState: { width: 1280, height: 820 },
 };
+
+/**
+ * Migrate legacy state shapes into the current one.
+ * - enabledModuleIds → instances (one instance per id, using id as instance id)
+ * - sidebarLayout.groups[].moduleIds → entryIds
+ * Safe to run on already-migrated data.
+ */
+function migrate(raw: any): any {
+  if (!raw || typeof raw !== 'object') return raw;
+  const out = { ...raw };
+
+  if (Array.isArray(raw.enabledModuleIds) && !Array.isArray(raw.instances)) {
+    out.instances = raw.enabledModuleIds.map((id: string) => ({
+      id,
+      moduleId: id,
+      name: id,
+    }));
+    delete out.enabledModuleIds;
+  }
+
+  // Rename activeModuleId → activeInstanceId if needed.
+  if ('activeModuleId' in raw && !('activeInstanceId' in raw)) {
+    out.activeInstanceId = raw.activeModuleId ?? null;
+    delete out.activeModuleId;
+  }
+
+  if (raw.sidebarLayout?.groups) {
+    out.sidebarLayout = {
+      ...raw.sidebarLayout,
+      groups: raw.sidebarLayout.groups.map((g: any) => {
+        if ('moduleIds' in g && !('entryIds' in g)) {
+          const { moduleIds, ...rest } = g;
+          return { ...rest, entryIds: moduleIds };
+        }
+        return g;
+      }),
+    };
+  }
+
+  return out;
+}
 
 export class SettingsService implements Service {
   readonly name = 'settings';
@@ -39,7 +81,8 @@ export class SettingsService implements Service {
   private async load(): Promise<void> {
     try {
       const raw = await fs.readFile(this.file, 'utf8');
-      const parsed = appStateSchema.safeParse(JSON.parse(raw));
+      const migrated = migrate(JSON.parse(raw));
+      const parsed = appStateSchema.safeParse(migrated);
       if (parsed.success) {
         this._state = { ...DEFAULT_STATE, ...parsed.data };
       } else {
@@ -55,7 +98,8 @@ export class SettingsService implements Service {
 
   private reconcileLayout(): void {
     const layout = this._state.sidebarLayout ?? defaultLayout();
-    const reconciled = reconcile(layout, this._state.enabledModuleIds);
+    const validIds = this._state.instances.map((i) => i.id);
+    const reconciled = reconcile(layout, validIds);
     if (JSON.stringify(reconciled) !== JSON.stringify(layout)) {
       this._state = { ...this._state, sidebarLayout: reconciled };
     } else if (!this._state.sidebarLayout) {
@@ -81,37 +125,54 @@ export class SettingsService implements Service {
     this.queueWrite();
   }
 
-  enableModule(id: string): void {
-    if (!this._state.enabledModuleIds.includes(id)) {
-      this._state = {
-        ...this._state,
-        enabledModuleIds: [...this._state.enabledModuleIds, id],
-      };
-      this.reconcileLayout();
-      this.queueWrite();
-    }
-  }
-
-  disableModule(id: string): void {
+  /** Create a new instance of the given module. Returns the new instance. */
+  addInstance(moduleId: string, moduleName: string): ModuleInstance {
+    const existingIds = this._state.instances.map((i) => i.id);
+    const existingNames = this._state.instances
+      .filter((i) => i.moduleId === moduleId)
+      .map((i) => i.name);
+    const id = nextInstanceId(moduleId, existingIds);
+    const name = nextInstanceName(moduleName, existingNames);
+    const instance: ModuleInstance = { id, moduleId, name, createdAt: Date.now() };
     this._state = {
       ...this._state,
-      enabledModuleIds: this._state.enabledModuleIds.filter((m) => m !== id),
-      activeModuleId: this._state.activeModuleId === id ? null : this._state.activeModuleId,
+      instances: [...this._state.instances, instance],
+    };
+    this.reconcileLayout();
+    this.queueWrite();
+    return instance;
+  }
+
+  removeInstance(instanceId: string): void {
+    this._state = {
+      ...this._state,
+      instances: this._state.instances.filter((i) => i.id !== instanceId),
+      activeInstanceId:
+        this._state.activeInstanceId === instanceId ? null : this._state.activeInstanceId,
     };
     this.reconcileLayout();
     this.queueWrite();
   }
 
-  setSidebarLayout(layout: SidebarLayout): void {
-    // Reconcile against current enabled modules so the UI can't drop or duplicate ids.
-    const reconciled = reconcile(layout, this._state.enabledModuleIds);
-    this._state = { ...this._state, sidebarLayout: reconciled };
+  renameInstance(instanceId: string, name: string): void {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    this._state = {
+      ...this._state,
+      instances: this._state.instances.map((i) =>
+        i.id === instanceId ? { ...i, name: trimmed.slice(0, 96) } : i,
+      ),
+    };
     this.queueWrite();
   }
 
-  setActive(id: string | null): void {
-    if (this._state.activeModuleId === id) return;
-    this._state = { ...this._state, activeModuleId: id };
+  getInstance(instanceId: string): ModuleInstance | undefined {
+    return this._state.instances.find((i) => i.id === instanceId);
+  }
+
+  setActive(instanceId: string | null): void {
+    if (this._state.activeInstanceId === instanceId) return;
+    this._state = { ...this._state, activeInstanceId: instanceId };
     this.queueWrite();
   }
 
@@ -123,6 +184,13 @@ export class SettingsService implements Service {
 
   setWindowState(ws: AppState['windowState']): void {
     this._state = { ...this._state, windowState: ws };
+    this.queueWrite();
+  }
+
+  setSidebarLayout(layout: SidebarLayout): void {
+    const validIds = this._state.instances.map((i) => i.id);
+    const reconciled = reconcile(layout, validIds);
+    this._state = { ...this._state, sidebarLayout: reconciled };
     this.queueWrite();
   }
 }

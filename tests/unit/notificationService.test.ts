@@ -88,14 +88,14 @@ describe('NotificationService', () => {
     }
   });
 
-  it('clears badge when a module is disabled', async () => {
+  it('clears badge when an instance is removed', async () => {
     const originalPlatform = process.platform;
     Object.defineProperty(process, 'platform', { value: 'darwin' });
     try {
       const { bus } = await makeContainer();
       bus.emit('notification:update', { moduleId: 'whatsapp', count: 5 });
       dockMock.setBadge.mockClear();
-      bus.emit('module:disabled', { moduleId: 'whatsapp' });
+      bus.emit('instance:removed', { instanceId: 'whatsapp' });
       expect(dockMock.setBadge).toHaveBeenCalledWith('');
     } finally {
       Object.defineProperty(process, 'platform', { value: originalPlatform });

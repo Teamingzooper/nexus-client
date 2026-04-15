@@ -19,7 +19,7 @@ export class NotificationService implements Service {
 
     this.unsubscribe.push(
       ctx.bus.on('notification:update', (u) => this.report(u)),
-      ctx.bus.on('module:disabled', ({ moduleId }) => this.clear(moduleId)),
+      ctx.bus.on('instance:removed', ({ instanceId }) => this.clear(instanceId)),
     );
   }
 
