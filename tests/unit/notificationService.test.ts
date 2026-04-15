@@ -1,10 +1,35 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { dockMock } = vi.hoisted(() => ({ dockMock: { setBadge: vi.fn() } }));
-vi.mock('electron', () => ({
-  app: { dock: dockMock },
-  BrowserWindow: class {},
+const { dockMock, notifMock } = vi.hoisted(() => ({
+  dockMock: { setBadge: vi.fn() },
+  notifMock: {
+    show: vi.fn(),
+    on: vi.fn(),
+    lastOpts: null as any,
+  },
 }));
+
+vi.mock('electron', () => {
+  class FakeNotification {
+    constructor(opts: any) {
+      notifMock.lastOpts = opts;
+    }
+    static isSupported() {
+      return true;
+    }
+    show() {
+      notifMock.show();
+    }
+    on(event: string, handler: () => void) {
+      notifMock.on(event, handler);
+    }
+  }
+  return {
+    app: { dock: dockMock },
+    BrowserWindow: class {},
+    Notification: FakeNotification,
+  };
+});
 
 import { NotificationService } from '../../src/main/services/notificationService';
 import { Logger } from '../../src/main/core/logger';
@@ -17,6 +42,10 @@ class FakeWindowService {
   private destroyed = false;
   win = {
     isDestroyed: () => this.destroyed,
+    show: vi.fn(),
+    focus: vi.fn(),
+    restore: vi.fn(),
+    isMinimized: () => false,
     webContents: {
       send: (channel: string, payload: unknown) => this.sent.push({ channel, payload }),
     },
@@ -30,6 +59,32 @@ class FakeWindowService {
   }
 }
 
+class FakeSettingsService {
+  readonly name = 'settings';
+  state = {
+    activeInstanceId: null as string | null,
+    instances: [] as Array<{ id: string; moduleId: string; name: string }>,
+    themeId: 'nexus-dark',
+    notificationsEnabled: true as boolean,
+  };
+  init() {}
+  getInstance(id: string) {
+    return this.state.instances.find((i) => i.id === id);
+  }
+  setActive(id: string | null) {
+    this.state.activeInstanceId = id;
+  }
+  addFakeInstance(id: string, name: string) {
+    this.state.instances.push({ id, moduleId: id, name });
+  }
+}
+
+class FakeViewService {
+  readonly name = 'views';
+  activate = vi.fn();
+  init() {}
+}
+
 async function makeContainer() {
   const bus = new EventBus();
   const container = new ServiceContainer({
@@ -40,15 +95,24 @@ async function makeContainer() {
     isDev: false,
   });
   const win = new FakeWindowService();
+  const settings = new FakeSettingsService();
+  const views = new FakeViewService();
   const notifications = new NotificationService();
-  container.register(win as any).register(notifications);
+  container
+    .register(win as any)
+    .register(settings as any)
+    .register(views as any)
+    .register(notifications);
   await container.init();
-  return { container, bus, win, notifications };
+  return { container, bus, win, settings, views, notifications };
 }
 
 describe('NotificationService', () => {
   beforeEach(() => {
     dockMock.setBadge.mockClear();
+    notifMock.show.mockClear();
+    notifMock.on.mockClear();
+    notifMock.lastOpts = null;
   });
 
   it('broadcasts unread updates on the bus', async () => {
@@ -107,5 +171,60 @@ describe('NotificationService', () => {
     bus.emit('notification:update', { moduleId: 'whatsapp', count: 4 });
     bus.emit('notification:update', { moduleId: 'telegram', count: 1 });
     expect(notifications.all()).toEqual({ whatsapp: 4, telegram: 1 });
+  });
+
+  describe('native notifications', () => {
+    it('shows a native notification formatted with the instance name', async () => {
+      const { bus, settings } = await makeContainer();
+      settings.addFakeInstance('whatsapp', 'Work');
+      bus.emit('notification:native', {
+        instanceId: 'whatsapp',
+        title: 'John',
+        body: 'Lunch?',
+      });
+      expect(notifMock.show).toHaveBeenCalled();
+      expect(notifMock.lastOpts.title).toBe('[Nexus] Work');
+      expect(notifMock.lastOpts.body).toBe('John: Lunch?');
+    });
+
+    it('skips native notifications when the setting is disabled', async () => {
+      const { bus, settings } = await makeContainer();
+      settings.state.notificationsEnabled = false;
+      settings.addFakeInstance('whatsapp', 'Work');
+      bus.emit('notification:native', {
+        instanceId: 'whatsapp',
+        title: 'John',
+        body: 'Lunch?',
+      });
+      expect(notifMock.show).not.toHaveBeenCalled();
+    });
+
+    it('ignores events for unknown instances', async () => {
+      const { bus } = await makeContainer();
+      bus.emit('notification:native', {
+        instanceId: 'ghost',
+        title: 'hi',
+        body: 'there',
+      });
+      expect(notifMock.show).not.toHaveBeenCalled();
+    });
+
+    it('click handler focuses window and activates the instance', async () => {
+      const { bus, settings, views, win } = await makeContainer();
+      settings.addFakeInstance('whatsapp', 'Work');
+      bus.emit('notification:native', {
+        instanceId: 'whatsapp',
+        title: 'John',
+        body: 'Lunch?',
+      });
+      // Capture the click handler and invoke it.
+      const clickCall = notifMock.on.mock.calls.find((c: any) => c[0] === 'click');
+      expect(clickCall).toBeTruthy();
+      const clickHandler = clickCall![1];
+      clickHandler();
+      expect(win.win.focus).toHaveBeenCalled();
+      expect(views.activate).toHaveBeenCalledWith('whatsapp');
+      expect(settings.state.activeInstanceId).toBe('whatsapp');
+    });
   });
 });

@@ -12,6 +12,8 @@ export function SettingsPanel({ onClose }: Props) {
   const [tab, setTab] = useState<Tab>('modules');
   const modules = useNexus((s) => s.modules);
   const instances = useNexus((s) => s.state.instances);
+  const notificationsEnabled = useNexus((s) => s.state.notificationsEnabled ?? true);
+  const setNotificationsEnabled = useNexus((s) => s.setNotificationsEnabled);
   const addInstance = useNexus((s) => s.addInstance);
   const removeInstance = useNexus((s) => s.removeInstance);
   const reload = useNexus((s) => s.reloadModules);
@@ -101,6 +103,23 @@ export function SettingsPanel({ onClose }: Props) {
                   Open modules folder
                 </button>
               </div>
+
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={notificationsEnabled}
+                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                />
+                <div>
+                  <div className="settings-toggle-title">Native notifications</div>
+                  <div className="settings-toggle-desc">
+                    Show native OS notifications when any instance receives a message.
+                    Format: <code>[Nexus] &lt;instance name&gt;</code> with the message content
+                    as the body. Click a notification to focus that instance.
+                  </div>
+                </div>
+              </label>
+
               <p className="editor-hint">
                 A <strong>module</strong> is the template for a messaging service. You can add
                 multiple <strong>instances</strong> of any module to log in with separate accounts —

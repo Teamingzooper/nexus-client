@@ -176,6 +176,13 @@ export class IpcService implements Service {
 
     this.router.register(IPC.UNREAD_ALL, { handler: () => notifications.all() });
 
+    this.router.register(IPC.NOTIFY_SET_ENABLED, {
+      input: z.boolean(),
+      handler: (enabled) => {
+        settings.setNotificationsEnabled(enabled);
+      },
+    });
+
     this.router.register(IPC.SIDEBAR_UPDATE_LAYOUT, {
       input: sidebarLayoutSchema,
       handler: (layout) => {

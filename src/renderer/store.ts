@@ -44,6 +44,7 @@ interface NexusStore {
   setTheme(id: string): Promise<void>;
   saveTheme(theme: Theme): Promise<void>;
   deleteTheme(id: string): Promise<void>;
+  setNotificationsEnabled(enabled: boolean): Promise<void>;
   exportThemePack(
     ids: string[],
     meta?: { name?: string; author?: string },
@@ -71,6 +72,7 @@ const DEFAULT_STATE: AppState = {
   activeInstanceId: null,
   instances: [],
   themeId: 'nexus-dark',
+  notificationsEnabled: true,
   sidebarLayout: defaultLayout(),
 };
 
@@ -162,6 +164,11 @@ export const useNexus = create<NexusStore>((set, get) => ({
       themes,
       state: s.state.themeId === id ? { ...s.state, themeId: 'nexus-dark' } : s.state,
     }));
+  },
+
+  async setNotificationsEnabled(enabled) {
+    await window.nexus.setNotificationsEnabled(enabled);
+    set((s) => ({ state: { ...s.state, notificationsEnabled: enabled } }));
   },
 
   async exportThemePack(ids, meta) {

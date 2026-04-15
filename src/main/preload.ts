@@ -65,6 +65,8 @@ const api = {
     return () => ipcRenderer.removeListener(IPC.UNREAD_UPDATE, listener);
   },
   getAllUnread: (): Promise<Record<string, number>> => invoke(IPC.UNREAD_ALL),
+  setNotificationsEnabled: (enabled: boolean): Promise<void> =>
+    invoke(IPC.NOTIFY_SET_ENABLED, enabled),
 };
 
 contextBridge.exposeInMainWorld('nexus', api);

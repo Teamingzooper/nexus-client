@@ -11,6 +11,7 @@ const DEFAULT_STATE: AppState = {
   activeInstanceId: null,
   instances: [],
   themeId: 'nexus-dark',
+  notificationsEnabled: true,
   sidebarLayout: defaultLayout(),
   windowState: { width: 1280, height: 820 },
 };
@@ -179,6 +180,12 @@ export class SettingsService implements Service {
   setTheme(id: string): void {
     if (this._state.themeId === id) return;
     this._state = { ...this._state, themeId: id };
+    this.queueWrite();
+  }
+
+  setNotificationsEnabled(enabled: boolean): void {
+    if (this._state.notificationsEnabled === enabled) return;
+    this._state = { ...this._state, notificationsEnabled: enabled };
     this.queueWrite();
   }
 

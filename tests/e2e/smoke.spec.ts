@@ -119,6 +119,23 @@ test('deleting an instance requires confirmation', async ({ mainWindow }) => {
   ).toHaveCount(0);
 });
 
+test('native notifications toggle is visible and defaults to enabled', async ({
+  mainWindow,
+}) => {
+  await mainWindow.locator('.header-settings-btn').click();
+  const toggle = mainWindow.locator('.settings-toggle input[type="checkbox"]');
+  await expect(toggle).toBeVisible();
+  await expect(toggle).toBeChecked();
+  await expect(
+    mainWindow.locator('.settings-toggle-title', { hasText: 'Native notifications' }),
+  ).toBeVisible();
+  // Toggle off, then on again.
+  await toggle.click();
+  await expect(toggle).not.toBeChecked();
+  await toggle.click();
+  await expect(toggle).toBeChecked();
+});
+
 test('clear all data button lives in settings with a confirm guard', async ({
   mainWindow,
 }) => {

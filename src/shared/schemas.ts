@@ -109,6 +109,7 @@ export const appStateSchema = z.object({
   activeInstanceId: z.string().nullable(),
   instances: z.array(moduleInstanceSchema),
   themeId: themeIdSchema,
+  notificationsEnabled: z.boolean().optional(),
   sidebarLayout: sidebarLayoutSchema.optional(),
   windowState: z
     .object({

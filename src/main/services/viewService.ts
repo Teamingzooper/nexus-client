@@ -10,6 +10,7 @@ import type { WindowService } from './windowService';
 import type { SettingsService } from './settingsService';
 import { DefaultStrategyFactory } from './notifications/strategies';
 import type { NotificationStrategy, StrategyFactory } from './notifications/strategy';
+import { mainWorldNotificationShim } from './notifications/mainWorldShim';
 import { hardenSession, installNavigationGuard, resolveModuleFile } from '../core/security';
 
 interface ManagedView {
@@ -180,6 +181,12 @@ export class ViewService implements Service {
     const origin = new URL(manifest.url).origin;
     hardenSession(ses, origin, this.logger);
 
+    // Install the Nexus notification preload on this session so window.Notification
+    // calls from the page are forwarded to the main process. Must be set before
+    // the first loadURL so the very first frame picks it up.
+    const notifyPreloadPath = path.join(__dirname, '..', 'notifyPreload.js');
+    ses.setPreloads([...ses.getPreloads(), notifyPreloadPath]);
+
     let preloadAbs: string | undefined;
     if (manifest.inject?.preload) {
       const p = resolveModuleFile(mod.path, manifest.inject.preload);
@@ -207,6 +214,15 @@ export class ViewService implements Service {
     installNavigationGuard(view.webContents, origin, this.logger);
 
     view.webContents.on('dom-ready', async () => {
+      // 1. Inject the Nexus main-world Notification shim. Idempotent — safe to
+      //    re-run on reload. Must run in the main world (second arg = true).
+      try {
+        await view.webContents.executeJavaScript(mainWorldNotificationShim, true);
+      } catch (err) {
+        this.logger.warn(`notification shim inject failed for ${instance.id}`, err);
+      }
+
+      // 2. Inject module-specific CSS if declared in the manifest.
       if (manifest.inject?.css) {
         const cssPath = resolveModuleFile(mod.path, manifest.inject.css);
         if (!cssPath) {
@@ -221,6 +237,23 @@ export class ViewService implements Service {
         }
       }
       this.ctx.bus.emit('view:ready', { instanceId: instance.id });
+    });
+
+    // Listen for notification forwards from the preload and bubble them
+    // through the event bus so NotificationService can present them natively.
+    view.webContents.ipc.on('nexus:notify:show', (_event, raw: unknown) => {
+      if (!raw || typeof raw !== 'object') return;
+      const r = raw as { title?: unknown; body?: unknown; tag?: unknown };
+      const title = typeof r.title === 'string' ? r.title : '';
+      const body = typeof r.body === 'string' ? r.body : '';
+      const tag = typeof r.tag === 'string' ? r.tag : undefined;
+      if (!title && !body) return;
+      this.ctx.bus.emit('notification:native', {
+        instanceId: instance.id,
+        title,
+        body,
+        tag,
+      });
     });
 
     view.webContents.on('did-fail-load', (_e, code, desc, url) => {

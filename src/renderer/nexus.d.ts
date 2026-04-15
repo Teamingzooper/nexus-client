@@ -41,6 +41,7 @@ declare global {
 
       onUnread(cb: (update: UnreadUpdate) => void): () => void;
       getAllUnread(): Promise<Record<string, number>>;
+      setNotificationsEnabled(enabled: boolean): Promise<void>;
     };
   }
 }
