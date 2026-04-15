@@ -13,7 +13,11 @@
     "build:renderer": "vite build",
     "start": "electron .",
     "launch": "npm run build && electron .",
-    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit"
+    "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "npm run build && playwright test",
+    "bench": "vitest run --config vitest.bench.config.ts tests/bench"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
@@ -23,8 +27,12 @@
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^30.0.0",
+    "@playwright/test": "^1.44.0",
+    "@vitest/ui": "^1.6.0",
+    "playwright": "^1.44.0",
     "typescript": "^5.3.3",
     "vite": "^5.1.0",
+    "vitest": "^1.6.0",
     "wait-on": "^7.2.0"
   },
   "dependencies": {

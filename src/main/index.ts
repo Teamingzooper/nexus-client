@@ -1,92 +1,92 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow } from 'electron';
 import * as path from 'path';
-import { ModuleRegistry } from './moduleRegistry';
-import { ViewManager } from './viewManager';
-import { SettingsStore } from './settingsStore';
-import { ThemeStore } from './themeStore';
-import { NotificationHub } from './notificationHub';
-import { registerIpc } from './ipc';
+import { ServiceContainer } from './core/service';
+import { rootLogger } from './core/logger';
+import { EventBus } from './core/eventBus';
+import { SettingsService } from './services/settingsService';
+import { ThemeService } from './services/themeService';
+import { ModuleRegistryService } from './services/moduleRegistryService';
+import { WindowService } from './services/windowService';
+import { ViewService } from './services/viewService';
+import { NotificationService } from './services/notificationService';
+import { IpcService } from './services/ipcService';
 
 const isDev = process.env.NEXUS_DEV === '1';
 
-async function createWindow(): Promise<BrowserWindow> {
-  const win = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 900,
-    minHeight: 600,
-    backgroundColor: '#16161e',
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      sandbox: false,
-      nodeIntegration: false,
-    },
-  });
-
-  if (isDev) {
-    await win.loadURL('http://localhost:5173');
-  } else {
-    await win.loadFile(path.join(__dirname, '../../renderer/index.html'));
-  }
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  return win;
+// E2E / test isolation: each test run can point us at a throwaway userData dir.
+if (process.env.NEXUS_USER_DATA) {
+  app.setPath('userData', path.resolve(process.env.NEXUS_USER_DATA));
 }
 
 async function bootstrap(): Promise<void> {
   await app.whenReady();
 
-  const settings = new SettingsStore();
-  await settings.load();
+  const bus = new EventBus();
+  // appRoot must point at the repo/app root (where `modules/` lives).
+  // In dev/launch, index.js is at dist/main/main/index.js, so three `..` get us to the root.
+  // In a future packaged build, electron-builder should place modules/ next to resources/.
+  const appRoot = path.resolve(__dirname, '..', '..', '..');
 
-  const themes = new ThemeStore();
-  await themes.load();
+  const container = new ServiceContainer({
+    logger: rootLogger,
+    bus,
+    userData: app.getPath('userData'),
+    appPath: appRoot,
+    isDev,
+  });
 
-  const registry = new ModuleRegistry();
-  await registry.load();
+  container
+    .register(new SettingsService())
+    .register(new ThemeService())
+    .register(new ModuleRegistryService())
+    .register(new WindowService())
+    .register(new ViewService())
+    .register(new NotificationService())
+    .register(new IpcService());
 
-  const win = await createWindow();
-  const views = new ViewManager(win, registry);
-  const notifications = new NotificationHub(win);
+  await container.init();
 
-  views.on('unread', (update) => notifications.report(update));
+  const windowService = container.get<WindowService>('window');
+  const win = await windowService.create();
 
-  for (const id of settings.state.enabledModuleIds) {
-    try {
-      views.ensureView(id);
-    } catch (err) {
-      console.error(`[nexus] failed to init module ${id}:`, err);
-    }
-  }
+  const settings = container.get<SettingsService>('settings');
+  const views = container.get<ViewService>('views');
+  const registry = container.get<ModuleRegistryService>('modules');
 
-  if (settings.state.activeModuleId) {
-    views.activate(settings.state.activeModuleId);
-  }
-
-  registerIpc({ settings, themes, registry, views, notifications, win });
+  // Warm up enabled modules after the window paints so the first frame isn't delayed.
+  win.once('ready-to-show', () => {
+    setImmediate(() => {
+      for (const id of settings.state.enabledModuleIds) {
+        if (registry.get(id)) {
+          try {
+            views.ensure(id);
+          } catch (err) {
+            rootLogger.warn(`failed to warm ${id}`, err);
+          }
+        }
+      }
+      if (settings.state.activeModuleId && registry.get(settings.state.activeModuleId)) {
+        views.activate(settings.state.activeModuleId);
+      }
+    });
+  });
 
   win.on('closed', () => {
-    views.destroyAll();
+    container.dispose().catch((err) => rootLogger.error('dispose failed', err));
   });
 
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
   });
 
-  app.on('activate', () => {
+  app.on('activate', async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      bootstrap().catch((err) => console.error('[nexus] re-bootstrap failed:', err));
+      await windowService.create();
     }
   });
 }
 
 bootstrap().catch((err) => {
-  console.error('[nexus] fatal bootstrap error:', err);
+  rootLogger.error('fatal bootstrap error', err);
   app.exit(1);
 });

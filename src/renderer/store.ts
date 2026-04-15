@@ -7,15 +7,17 @@ interface NexusStore {
   state: AppState;
   unread: Record<string, number>;
   ready: boolean;
+  error: string | null;
 
   init(): Promise<void>;
   activate(id: string): Promise<void>;
   enable(id: string): Promise<void>;
   disable(id: string): Promise<void>;
   reload(): Promise<void>;
+  reloadActive(): Promise<void>;
   setTheme(id: string): Promise<void>;
   saveTheme(theme: Theme): Promise<void>;
-  setUnread(moduleId: string, count: number): void;
+  deleteTheme(id: string): Promise<void>;
 }
 
 const DEFAULT_STATE: AppState = {
@@ -30,24 +32,37 @@ export const useNexus = create<NexusStore>((set, get) => ({
   state: DEFAULT_STATE,
   unread: {},
   ready: false,
+  error: null,
 
   async init() {
-    const [modules, themes, state, unread] = await Promise.all([
-      window.nexus.listModules(),
-      window.nexus.listThemes(),
-      window.nexus.getState(),
-      window.nexus.getAllUnread(),
-    ]);
-    set({ modules, themes, state, unread, ready: true });
+    try {
+      const [modules, themes, state, unread] = await Promise.all([
+        window.nexus.listModules(),
+        window.nexus.listThemes(),
+        window.nexus.getState(),
+        window.nexus.getAllUnread(),
+      ]);
+      set({ modules, themes, state, unread, ready: true, error: null });
 
-    window.nexus.onUnread((update) => {
-      set((s) => ({ unread: { ...s.unread, [update.moduleId]: update.count } }));
-    });
+      window.nexus.onUnread((update) => {
+        set((s) => ({ unread: { ...s.unread, [update.moduleId]: update.count } }));
+      });
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : String(err), ready: true });
+    }
   },
 
   async activate(id) {
     await window.nexus.activateModule(id);
-    set((s) => ({ state: { ...s.state, activeModuleId: id } }));
+    set((s) => ({
+      state: {
+        ...s.state,
+        activeModuleId: id,
+        enabledModuleIds: s.state.enabledModuleIds.includes(id)
+          ? s.state.enabledModuleIds
+          : [...s.state.enabledModuleIds, id],
+      },
+    }));
   },
 
   async enable(id) {
@@ -71,6 +86,10 @@ export const useNexus = create<NexusStore>((set, get) => ({
     set({ modules });
   },
 
+  async reloadActive() {
+    await window.nexus.reloadActiveModule();
+  },
+
   async setTheme(id) {
     await window.nexus.setTheme(id);
     set((s) => ({ state: { ...s.state, themeId: id } }));
@@ -81,7 +100,11 @@ export const useNexus = create<NexusStore>((set, get) => ({
     set({ themes });
   },
 
-  setUnread(moduleId, count) {
-    set((s) => ({ unread: { ...s.unread, [moduleId]: count } }));
+  async deleteTheme(id) {
+    const themes = await window.nexus.deleteTheme(id);
+    set((s) => ({
+      themes,
+      state: s.state.themeId === id ? { ...s.state, themeId: 'nexus-dark' } : s.state,
+    }));
   },
 }));
