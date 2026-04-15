@@ -22,10 +22,13 @@ async function bootstrap(): Promise<void> {
   await app.whenReady();
 
   const bus = new EventBus();
-  // appRoot must point at the repo/app root (where `modules/` lives).
-  // In dev/launch, index.js is at dist/main/main/index.js, so three `..` get us to the root.
-  // In a future packaged build, electron-builder should place modules/ next to resources/.
-  const appRoot = path.resolve(__dirname, '..', '..', '..');
+  // appRoot must point at the directory whose `modules/` subfolder holds the
+  // bundled modules. In a packaged build electron-builder copies `modules/`
+  // into `process.resourcesPath` via the `extraResources` config. In dev,
+  // index.js is at dist/main/main/index.js so three `..` get us to the repo root.
+  const appRoot = app.isPackaged
+    ? process.resourcesPath
+    : path.resolve(__dirname, '..', '..', '..');
 
   const container = new ServiceContainer({
     logger: rootLogger,

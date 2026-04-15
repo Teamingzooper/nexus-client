@@ -1,7 +1,16 @@
 {
   "name": "nexus",
+  "productName": "Nexus",
   "version": "0.1.0",
   "description": "Modular desktop messaging client — a moddable wrapper for messaging web portals",
+  "author": {
+    "name": "Teamingzooper"
+  },
+  "homepage": "https://github.com/Teamingzooper/nexus-client",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Teamingzooper/nexus-client.git"
+  },
   "main": "dist/main/main/index.js",
   "scripts": {
     "dev": "concurrently -k -n MAIN,RENDERER,ELECTRON -c blue,green,magenta \"npm:dev:main\" \"npm:dev:renderer\" \"npm:dev:electron\"",
@@ -17,18 +26,26 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "npm run build && playwright test",
-    "bench": "vitest run --config vitest.bench.config.ts tests/bench"
+    "bench": "vitest run --config vitest.bench.config.ts tests/bench",
+    "dist": "npm run build && electron-builder",
+    "dist:mac": "npm run build && electron-builder --mac --arm64 && electron-builder --mac --x64",
+    "dist:mac:arm64": "npm run build && electron-builder --mac --arm64",
+    "dist:mac:x64": "npm run build && electron-builder --mac --x64",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:all": "npm run build && electron-builder -mwl"
   },
   "devDependencies": {
+    "@playwright/test": "^1.44.0",
     "@types/node": "^20.11.0",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/ui": "^1.6.0",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^30.0.0",
-    "@playwright/test": "^1.44.0",
-    "@vitest/ui": "^1.6.0",
+    "electron-builder": "^24.13.3",
     "playwright": "^1.44.0",
     "typescript": "^5.3.3",
     "vite": "^5.1.0",
@@ -40,5 +57,93 @@
     "react-dom": "^18.2.0",
     "zod": "^3.22.4",
     "zustand": "^4.5.0"
+  },
+  "build": {
+    "appId": "com.teamingzooper.nexus",
+    "productName": "Nexus",
+    "copyright": "Copyright © 2026 Teamingzooper",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/main/**/*",
+      "dist/renderer/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/*.ts",
+      "!**/*.tsbuildinfo",
+      "!**/tsconfig*.json"
+    ],
+    "extraResources": [
+      {
+        "from": "modules",
+        "to": "modules",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.social-networking",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false,
+      "identity": null
+    },
+    "dmg": {
+      "title": "Nexus ${version}"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Nexus"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Network",
+      "artifactName": "${productName}-${version}.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Teamingzooper",
+        "repo": "nexus-client",
+        "releaseType": "release"
+      }
+    ]
   }
 }
