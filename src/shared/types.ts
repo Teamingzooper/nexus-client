@@ -61,4 +61,6 @@ export const IPC = {
   APP_CLEAR_ALL_DATA: 'nexus:app:clear-all-data',
   UNREAD_UPDATE: 'nexus:unread:update',
   UNREAD_ALL: 'nexus:unread:all',
+  NOTIFY_SHOW: 'nexus:notify:show',
+  NOTIFY_SET_ENABLED: 'nexus:notify:set-enabled',
 } as const;

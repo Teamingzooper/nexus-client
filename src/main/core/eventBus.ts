@@ -14,6 +14,12 @@ export interface NexusEvents {
   'view:ready': { instanceId: string };
   'view:load-failed': { instanceId: string; error: string };
   'notification:update': UnreadUpdate;
+  'notification:native': {
+    instanceId: string;
+    title: string;
+    body: string;
+    tag?: string;
+  };
   'theme:changed': { themeId: string };
   'settings:changed': { key: string };
 }

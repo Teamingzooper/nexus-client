@@ -203,6 +203,29 @@ describe('SettingsService', () => {
     await s.dispose();
   });
 
+  it('notificationsEnabled defaults to true and round-trips through disk', async () => {
+    const s1 = new SettingsService();
+    await s1.init(makeCtx(tmp));
+    expect(s1.state.notificationsEnabled).toBe(true);
+    s1.setNotificationsEnabled(false);
+    expect(s1.state.notificationsEnabled).toBe(false);
+    await s1.dispose();
+
+    const s2 = new SettingsService();
+    await s2.init(makeCtx(tmp));
+    expect(s2.state.notificationsEnabled).toBe(false);
+    await s2.dispose();
+  });
+
+  it('setNotificationsEnabled is a no-op when value unchanged', async () => {
+    const s = new SettingsService();
+    await s.init(makeCtx(tmp));
+    const before = s.state;
+    s.setNotificationsEnabled(true); // already default
+    expect(s.state).toBe(before);
+    await s.dispose();
+  });
+
   it('clearAll resets every field to defaults and removes the state file', async () => {
     const s = new SettingsService();
     await s.init(makeCtx(tmp));

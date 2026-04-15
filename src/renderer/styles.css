@@ -915,6 +915,44 @@ kbd {
   border-radius: var(--nx-radius-sm);
 }
 
+.settings-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  margin: 8px 0 12px;
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-sm);
+  background: var(--nx-sidebar);
+  cursor: pointer;
+}
+
+.settings-toggle input[type='checkbox'] {
+  margin-top: 3px;
+  accent-color: var(--nx-accent);
+  transform: scale(1.2);
+}
+
+.settings-toggle-title {
+  color: var(--nx-text);
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.settings-toggle-desc {
+  color: var(--nx-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.settings-toggle-desc code {
+  background: var(--nx-bg);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+
 .theme-field {
   display: grid;
   grid-template-columns: 60px 1fr;
