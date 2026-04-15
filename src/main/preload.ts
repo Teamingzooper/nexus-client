@@ -72,6 +72,12 @@ const api = {
   getAllUnread: (): Promise<Record<string, number>> => invoke(IPC.UNREAD_ALL),
   setNotificationsEnabled: (enabled: boolean): Promise<void> =>
     invoke(IPC.NOTIFY_SET_ENABLED, enabled),
+  setNotificationSound: (enabled: boolean): Promise<void> =>
+    invoke(IPC.NOTIFY_SET_SOUND, enabled),
+  setLaunchAtLogin: (enabled: boolean): Promise<void> =>
+    invoke(IPC.PREFS_SET_LAUNCH_AT_LOGIN, enabled),
+  setSidebarCompact: (enabled: boolean): Promise<void> =>
+    invoke(IPC.PREFS_SET_SIDEBAR_COMPACT, enabled),
   testNotification: (instanceId?: string | null): Promise<boolean> =>
     invoke(IPC.NOTIFY_TEST, instanceId ?? null),
 };

@@ -12,6 +12,9 @@ const DEFAULT_STATE: AppState = {
   instances: [],
   themeId: 'nexus-dark',
   notificationsEnabled: true,
+  notificationSound: true,
+  launchAtLogin: false,
+  sidebarCompact: false,
   sidebarLayout: defaultLayout(),
   windowState: { width: 1280, height: 820 },
 };
@@ -186,6 +189,24 @@ export class SettingsService implements Service {
   setNotificationsEnabled(enabled: boolean): void {
     if (this._state.notificationsEnabled === enabled) return;
     this._state = { ...this._state, notificationsEnabled: enabled };
+    this.queueWrite();
+  }
+
+  setNotificationSound(enabled: boolean): void {
+    if (this._state.notificationSound === enabled) return;
+    this._state = { ...this._state, notificationSound: enabled };
+    this.queueWrite();
+  }
+
+  setLaunchAtLogin(enabled: boolean): void {
+    if (this._state.launchAtLogin === enabled) return;
+    this._state = { ...this._state, launchAtLogin: enabled };
+    this.queueWrite();
+  }
+
+  setSidebarCompact(enabled: boolean): void {
+    if (this._state.sidebarCompact === enabled) return;
+    this._state = { ...this._state, sidebarCompact: enabled };
     this.queueWrite();
   }
 

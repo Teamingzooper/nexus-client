@@ -222,28 +222,69 @@ test('add-instance dialog also suspends views when opened over an active instanc
   expect(suspended!.width).toBe(0);
 });
 
-test('native notifications toggle is visible and defaults to enabled', async ({
+test('Notifications tab exposes enable toggle, sound toggle, and test button', async ({
   mainWindow,
 }) => {
   await mainWindow.locator('.header-settings-btn').click();
-  const toggle = mainWindow.locator('.settings-toggle input[type="checkbox"]');
-  await expect(toggle).toBeVisible();
-  await expect(toggle).toBeChecked();
+  await mainWindow.locator('.tab:has-text("Notifications")').click();
+
+  const enableToggle = mainWindow
+    .locator('.settings-toggle:has-text("Enable native notifications") input[type="checkbox"]');
+  await expect(enableToggle).toBeVisible();
+  await expect(enableToggle).toBeChecked();
+
+  const soundToggle = mainWindow
+    .locator('.settings-toggle:has-text("Play notification sound") input[type="checkbox"]');
+  await expect(soundToggle).toBeVisible();
+  await expect(soundToggle).toBeChecked();
+
   await expect(
-    mainWindow.locator('.settings-toggle-title', { hasText: 'Native notifications' }),
+    mainWindow.locator('.settings-action-row button:has-text("Send test notification")'),
   ).toBeVisible();
-  // Toggle off, then on again.
-  await toggle.click();
-  await expect(toggle).not.toBeChecked();
-  await toggle.click();
-  await expect(toggle).toBeChecked();
+
+  // Toggling the enable flag disables the sound toggle (sound gated on enable).
+  await enableToggle.click();
+  await expect(soundToggle).toBeDisabled();
+  await enableToggle.click();
+  await expect(soundToggle).toBeEnabled();
+});
+
+test('General tab has launch-at-login, compact sidebar, and danger zone', async ({
+  mainWindow,
+}) => {
+  await mainWindow.locator('.header-settings-btn').click();
+  await mainWindow.locator('.tab:has-text("General")').click();
+  await expect(
+    mainWindow.locator('.settings-toggle:has-text("Launch at login")'),
+  ).toBeVisible();
+  await expect(
+    mainWindow.locator('.settings-toggle:has-text("Compact sidebar")'),
+  ).toBeVisible();
+  await expect(mainWindow.locator('.danger-button:has-text("Clear all data")')).toBeVisible();
+});
+
+test('Compact sidebar toggle shrinks the sidebar', async ({ mainWindow }) => {
+  const sidebar = mainWindow.locator('.sidebar');
+  const wide = await sidebar.boundingBox();
+  expect(wide!.width).toBeGreaterThan(180);
+
+  await mainWindow.locator('.header-settings-btn').click();
+  await mainWindow.locator('.tab:has-text("General")').click();
+  await mainWindow
+    .locator('.settings-toggle:has-text("Compact sidebar") input[type="checkbox"]')
+    .click();
+  await mainWindow.keyboard.press('Escape');
+  // Give the CSS transition a frame to settle.
+  await mainWindow.waitForTimeout(250);
+  const narrow = await sidebar.boundingBox();
+  expect(narrow!.width).toBeLessThan(120);
 });
 
 test('clear all data button lives in settings with a confirm guard', async ({
   mainWindow,
 }) => {
   await mainWindow.locator('.header-settings-btn').click();
-  await mainWindow.locator('.tab:has-text("About")').click();
+  await mainWindow.locator('.tab:has-text("General")').click();
   const btn = mainWindow.locator('.danger-button:has-text("Clear all data")');
   await expect(btn).toBeVisible();
   await btn.click();
@@ -382,9 +423,9 @@ test('reload modules button does not blow up the shell', async ({ mainWindow }) 
   await expect(mainWindow.locator('.modal')).toBeVisible();
 });
 
-test('about tab shows keyboard shortcuts', async ({ mainWindow }) => {
+test('General tab shows keyboard shortcuts', async ({ mainWindow }) => {
   await mainWindow.locator('.header-settings-btn').click();
-  await mainWindow.locator('.tab:has-text("About")').click();
+  await mainWindow.locator('.tab:has-text("General")').click();
   await expect(mainWindow.locator('.shortcuts')).toBeVisible();
   await expect(mainWindow.locator('.shortcuts kbd').first()).toBeVisible();
 });

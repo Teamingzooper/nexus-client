@@ -63,5 +63,8 @@ export const IPC = {
   UNREAD_ALL: 'nexus:unread:all',
   NOTIFY_SHOW: 'nexus:notify:show',
   NOTIFY_SET_ENABLED: 'nexus:notify:set-enabled',
+  NOTIFY_SET_SOUND: 'nexus:notify:set-sound',
   NOTIFY_TEST: 'nexus:notify:test',
+  PREFS_SET_LAUNCH_AT_LOGIN: 'nexus:prefs:set-launch-at-login',
+  PREFS_SET_SIDEBAR_COMPACT: 'nexus:prefs:set-sidebar-compact',
 } as const;

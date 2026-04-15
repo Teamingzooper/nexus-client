@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { dialog, BrowserWindow } from 'electron';
+import { app, dialog, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import { IPC } from '../../shared/types';
 import {
@@ -186,6 +186,34 @@ export class IpcService implements Service {
     this.router.register(IPC.NOTIFY_TEST, {
       input: z.string().nullable().optional(),
       handler: (instanceId) => notifications.testNotification(instanceId ?? null),
+    });
+
+    this.router.register(IPC.NOTIFY_SET_SOUND, {
+      input: z.boolean(),
+      handler: (enabled) => {
+        settings.setNotificationSound(enabled);
+      },
+    });
+
+    this.router.register(IPC.PREFS_SET_LAUNCH_AT_LOGIN, {
+      input: z.boolean(),
+      handler: (enabled) => {
+        settings.setLaunchAtLogin(enabled);
+        // app.setLoginItemSettings only has real effect in packaged builds.
+        // In dev it's a no-op, which is fine — we still persist the setting.
+        try {
+          app.setLoginItemSettings({ openAtLogin: enabled });
+        } catch (err) {
+          this.logger.warn('setLoginItemSettings failed', err);
+        }
+      },
+    });
+
+    this.router.register(IPC.PREFS_SET_SIDEBAR_COMPACT, {
+      input: z.boolean(),
+      handler: (enabled) => {
+        settings.setSidebarCompact(enabled);
+      },
     });
 
     this.router.register(IPC.SIDEBAR_UPDATE_LAYOUT, {

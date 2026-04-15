@@ -68,11 +68,22 @@ async function bootstrap(): Promise<void> {
   await container.init();
 
   const windowService = container.get<WindowService>('window');
-  const win = await windowService.create();
-
   const settings = container.get<SettingsService>('settings');
   const views = container.get<ViewService>('views');
   const registry = container.get<ModuleRegistryService>('modules');
+
+  // Reconcile the OS-level "launch at login" flag with the persisted setting
+  // on every boot. Cheap, and keeps them in sync if the user toggled via
+  // System Settings → General → Login Items.
+  try {
+    if (settings.state.launchAtLogin) {
+      app.setLoginItemSettings({ openAtLogin: true });
+    }
+  } catch (err) {
+    rootLogger.warn('setLoginItemSettings at boot failed', err);
+  }
+
+  const win = await windowService.create();
 
   // Warm up existing instances after the window paints so the first frame isn't delayed.
   win.once('ready-to-show', () => {
@@ -97,14 +108,12 @@ async function bootstrap(): Promise<void> {
     container.dispose().catch((err) => rootLogger.error('dispose failed', err));
   });
 
+  // Closing the Nexus window quits the whole app on every platform. This
+  // overrides the macOS "keep running in dock after window close" convention
+  // by design — users asked for it because Nexus is a single-window app and
+  // a hidden background process is confusing.
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-  });
-
-  app.on('activate', async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await windowService.create();
-    }
+    app.quit();
   });
 }
 

@@ -204,6 +204,70 @@ kbd {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  transition: width var(--nx-transition);
+}
+
+.sidebar.compact {
+  width: 68px;
+}
+
+.sidebar.compact .sidebar-scroll {
+  padding: 4px 0;
+}
+
+.sidebar.compact .group-header {
+  padding: 4px 2px 2px;
+  justify-content: center;
+}
+
+.sidebar.compact .group-name,
+.sidebar.compact .group-toggle,
+.sidebar.compact .group-delete,
+.sidebar.compact .module-name,
+.sidebar.compact .module-remove,
+.sidebar.compact .group-count {
+  display: none;
+}
+
+.sidebar.compact .sidebar-group {
+  padding: 2px 4px 4px;
+}
+
+.sidebar.compact .module-item {
+  padding: 6px 4px;
+  justify-content: center;
+}
+
+.sidebar.compact .module-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.sidebar.compact .badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 10px;
+  padding: 0 4px;
+}
+
+.sidebar.compact .sidebar-footer {
+  flex-direction: column;
+  padding: 4px;
+  gap: 4px;
+}
+
+.sidebar.compact .sidebar-action {
+  padding: 6px 4px;
+  font-size: 10px;
+}
+
+.sidebar.compact .group-empty {
+  font-size: 9px;
+  padding: 4px;
 }
 
 .sidebar-scroll {
@@ -979,6 +1043,29 @@ kbd {
 .toggle-flash {
   font-size: 11px;
   color: var(--nx-accent);
+}
+
+.settings-action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 16px;
+  flex-wrap: wrap;
+}
+
+.settings-action-row button {
+  background: var(--nx-sidebar);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-sm);
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.settings-action-row button:hover {
+  background: var(--nx-sidebar-hover);
+  border-color: var(--nx-accent);
 }
 
 .theme-field {

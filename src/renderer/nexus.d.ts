@@ -43,6 +43,9 @@ declare global {
       onMenu(cb: (event: string) => void): () => void;
       getAllUnread(): Promise<Record<string, number>>;
       setNotificationsEnabled(enabled: boolean): Promise<void>;
+      setNotificationSound(enabled: boolean): Promise<void>;
+      setLaunchAtLogin(enabled: boolean): Promise<void>;
+      setSidebarCompact(enabled: boolean): Promise<void>;
       testNotification(instanceId?: string | null): Promise<boolean>;
     };
   }

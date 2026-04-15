@@ -129,7 +129,7 @@ export class NotificationService implements Service {
         title,
         body,
         subtitle: process.platform === 'darwin' ? 'Nexus' : undefined,
-        silent: false,
+        silent: this.settings.state.notificationSound === false,
       });
       notif.on('click', () => {
         const win = this.windowService.getWindow();
@@ -181,7 +181,7 @@ export class NotificationService implements Service {
         title: nTitle,
         body: nBody,
         subtitle: process.platform === 'darwin' ? 'Nexus' : undefined,
-        silent: false,
+        silent: this.settings.state.notificationSound === false,
       });
       notif.on('click', () => {
         const win = this.windowService.getWindow();

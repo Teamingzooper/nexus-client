@@ -46,6 +46,9 @@ interface NexusStore {
   saveTheme(theme: Theme): Promise<void>;
   deleteTheme(id: string): Promise<void>;
   setNotificationsEnabled(enabled: boolean): Promise<void>;
+  setNotificationSound(enabled: boolean): Promise<void>;
+  setLaunchAtLogin(enabled: boolean): Promise<void>;
+  setSidebarCompact(enabled: boolean): Promise<void>;
   testNotification(): Promise<boolean>;
   exportThemePack(
     ids: string[],
@@ -81,6 +84,9 @@ const DEFAULT_STATE: AppState = {
   instances: [],
   themeId: 'nexus-dark',
   notificationsEnabled: true,
+  notificationSound: true,
+  launchAtLogin: false,
+  sidebarCompact: false,
   sidebarLayout: defaultLayout(),
 };
 
@@ -178,6 +184,21 @@ export const useNexus = create<NexusStore>((set, get) => ({
   async setNotificationsEnabled(enabled) {
     await window.nexus.setNotificationsEnabled(enabled);
     set((s) => ({ state: { ...s.state, notificationsEnabled: enabled } }));
+  },
+
+  async setNotificationSound(enabled) {
+    await window.nexus.setNotificationSound(enabled);
+    set((s) => ({ state: { ...s.state, notificationSound: enabled } }));
+  },
+
+  async setLaunchAtLogin(enabled) {
+    await window.nexus.setLaunchAtLogin(enabled);
+    set((s) => ({ state: { ...s.state, launchAtLogin: enabled } }));
+  },
+
+  async setSidebarCompact(enabled) {
+    await window.nexus.setSidebarCompact(enabled);
+    set((s) => ({ state: { ...s.state, sidebarCompact: enabled } }));
   },
 
   async testNotification() {

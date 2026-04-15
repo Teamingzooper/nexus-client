@@ -1,17 +1,15 @@
 {
   "id": "whatsapp",
   "name": "WhatsApp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "nexus",
   "description": "WhatsApp Web embedded in Nexus.",
   "url": "https://web.whatsapp.com",
   "icon": "icon.svg",
   "partition": "persist:whatsapp",
   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-  "inject": {
-    "preload": "preload.js"
-  },
   "notifications": {
-    "kind": "custom"
+    "kind": "title",
+    "pattern": "\\((\\d+)\\)"
   }
 }
