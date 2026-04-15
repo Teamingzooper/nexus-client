@@ -33,6 +33,7 @@ interface NexusStore {
   confirm: ConfirmState | null;
   addInstanceOpen: boolean;
   settingsOpen: boolean;
+  overlayCount: number;
 
   init(): Promise<void>;
   activateInstance(instanceId: string): Promise<void>;
@@ -66,6 +67,12 @@ interface NexusStore {
   openSettings(): void;
   closeSettings(): void;
   toggleSettings(): void;
+
+  // Overlay registry (ref-counted). Any component that needs to cover the
+  // embedded WebContentsView calls pushOverlay() on mount and popOverlay()
+  // on unmount; a single App-level effect suspends views while count > 0.
+  pushOverlay(): void;
+  popOverlay(): void;
 }
 
 const DEFAULT_STATE: AppState = {
@@ -91,6 +98,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
   confirm: null,
   addInstanceOpen: false,
   settingsOpen: false,
+  overlayCount: 0,
 
   async init() {
     try {
@@ -256,5 +264,13 @@ export const useNexus = create<NexusStore>((set, get) => ({
 
   toggleSettings() {
     set((s) => ({ settingsOpen: !s.settingsOpen }));
+  },
+
+  pushOverlay() {
+    set((s) => ({ overlayCount: s.overlayCount + 1 }));
+  },
+
+  popOverlay() {
+    set((s) => ({ overlayCount: Math.max(0, s.overlayCount - 1) }));
   },
 }));

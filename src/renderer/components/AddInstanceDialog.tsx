@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useNexus } from '../store';
+import { useOverlay } from '../hooks/useOverlay';
 import { nextInstanceName } from '../../shared/instance';
 
 export function AddInstanceDialog() {
   const open = useNexus((s) => s.addInstanceOpen);
   const close = useNexus((s) => s.closeAddInstance);
+  useOverlay(open);
   const modules = useNexus((s) => s.modules);
   const instances = useNexus((s) => s.state.instances);
   const addInstance = useNexus((s) => s.addInstance);

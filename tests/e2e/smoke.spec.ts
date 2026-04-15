@@ -119,6 +119,109 @@ test('deleting an instance requires confirmation', async ({ mainWindow }) => {
   ).toHaveCount(0);
 });
 
+test('any overlay collapses the active WebContentsView to zero bounds (settings)', async ({
+  app,
+  mainWindow,
+}) => {
+  // Seed an instance so a WebContentsView exists and is attached.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await mainWindow.waitForTimeout(300);
+
+  const getActiveBounds = () =>
+    app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const children = (win as any).contentView.children as any[];
+      const last = children[children.length - 1];
+      if (!last || typeof last.getBounds !== 'function') return null;
+      return last.getBounds();
+    });
+
+  const before = await getActiveBounds();
+  expect(before).not.toBeNull();
+  expect(before!.width).toBeGreaterThan(0);
+  expect(before!.height).toBeGreaterThan(0);
+
+  // Open settings — view must collapse.
+  await mainWindow.locator('.header-settings-btn').click();
+  await mainWindow.waitForTimeout(150);
+  const suspended = await getActiveBounds();
+  expect(suspended!.width).toBe(0);
+  expect(suspended!.height).toBe(0);
+
+  // Close settings — view must restore.
+  await mainWindow.keyboard.press('Escape');
+  await mainWindow.waitForTimeout(150);
+  const after = await getActiveBounds();
+  expect(after!.width).toBeGreaterThan(0);
+  expect(after!.height).toBeGreaterThan(0);
+});
+
+test('confirm dialog triggered from sidebar also collapses the view', async ({
+  app,
+  mainWindow,
+}) => {
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await mainWindow.waitForTimeout(300);
+
+  const getActiveBounds = () =>
+    app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const children = (win as any).contentView.children as any[];
+      const last = children[children.length - 1];
+      if (!last || typeof last.getBounds !== 'function') return null;
+      return last.getBounds();
+    });
+
+  // Before: view has real bounds.
+  expect((await getActiveBounds())!.width).toBeGreaterThan(0);
+
+  // Fire the confirm dialog via the sidebar × button.
+  await mainWindow
+    .locator('.sidebar .module-item:has-text("WhatsApp") .module-remove')
+    .click({ force: true });
+  await mainWindow.waitForTimeout(150);
+
+  // View must be suspended so the confirm dialog isn't hidden under it.
+  const suspended = await getActiveBounds();
+  expect(suspended!.width).toBe(0);
+  expect(suspended!.height).toBe(0);
+
+  // Cancel — view restores.
+  await mainWindow.locator('.confirm-cancel').click();
+  await mainWindow.waitForTimeout(150);
+  expect((await getActiveBounds())!.width).toBeGreaterThan(0);
+});
+
+test('add-instance dialog also suspends views when opened over an active instance', async ({
+  app,
+  mainWindow,
+}) => {
+  // Create one instance first.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await mainWindow.waitForTimeout(300);
+
+  const getActiveBounds = () =>
+    app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const children = (win as any).contentView.children as any[];
+      const last = children[children.length - 1];
+      if (!last || typeof last.getBounds !== 'function') return null;
+      return last.getBounds();
+    });
+
+  // Open + Instance again to get the picker — view must collapse.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.waitForTimeout(150);
+  const suspended = await getActiveBounds();
+  expect(suspended!.width).toBe(0);
+});
+
 test('native notifications toggle is visible and defaults to enabled', async ({
   mainWindow,
 }) => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNexus } from '../store';
+import { useOverlay } from '../hooks/useOverlay';
 import { ThemeEditor } from './ThemeEditor';
 
 interface Props {
@@ -47,16 +48,14 @@ export function SettingsPanel({ onClose }: Props) {
     }
   };
 
+  useOverlay();
+
   useEffect(() => {
-    window.nexus.setViewsSuspended(true).catch(() => {});
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      window.nexus.setViewsSuspended(false).catch(() => {});
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
   return (
