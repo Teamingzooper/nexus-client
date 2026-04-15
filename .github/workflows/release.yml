@@ -39,33 +39,45 @@ jobs:
       - name: Build main + renderer bundles
         run: npm run build
 
-      - name: Build & publish (macOS — arm64 + x64)
+      # --publish never: electron-builder produces the artifacts on the
+      # runner but does NOT push to GitHub and does NOT generate
+      # latest.yml / latest-mac.yml (those only exist when publish is
+      # configured). The upload step below grabs only user-facing installers.
+      - name: Build installers (macOS — arm64 + x64)
         if: matrix.os == 'macos-latest'
-        # Single invocation so electron-builder's internal retry loop can
-        # absorb the hdiutil resize race that fires when two DMGs are
-        # created in parallel. Config in package.json already declares
-        # arch: [x64, arm64] on both DMG and ZIP targets.
-        run: npx electron-builder --mac --publish always
+        run: npx electron-builder --mac --publish never
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Unsigned build — set CSC_LINK / CSC_KEY_PASSWORD to sign.
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Build & publish (Windows)
+      - name: Build installer (Windows)
         if: matrix.os == 'windows-latest'
-        run: npx electron-builder --win --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --publish never
 
-      - name: Upload build artifacts (fallback)
-        if: always()
-        uses: actions/upload-artifact@v4
+      # Upload only DMG / mac ZIP / Windows EXE. The .blockmap files have a
+      # different suffix (*.dmg.blockmap, *.zip.blockmap, *.exe.blockmap) and
+      # are not matched by these globs, so they stay on the runner.
+      # Source code tarballs are auto-attached by GitHub Releases.
+      - name: Upload release assets (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: softprops/action-gh-release@v2
         with:
-          name: nexus-${{ matrix.os }}
-          path: |
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
             release/*.dmg
             release/*.zip
+
+      - name: Upload release assets (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
             release/*.exe
-            release/*.blockmap
-            release/latest*.yml
-          if-no-files-found: ignore
