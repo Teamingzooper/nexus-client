@@ -1,0 +1,14 @@
+{
+  "id": "telegram",
+  "name": "Telegram",
+  "version": "1.0.0",
+  "author": "nexus",
+  "description": "Telegram Web K embedded in Nexus.",
+  "url": "https://web.telegram.org/k/",
+  "icon": "icon.svg",
+  "partition": "persist:telegram",
+  "notifications": {
+    "kind": "title",
+    "pattern": "\\((\\d+)\\)"
+  }
+}

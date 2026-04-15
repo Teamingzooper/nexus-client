@@ -1,0 +1,15 @@
+{
+  "id": "messenger",
+  "name": "Messenger",
+  "version": "1.0.0",
+  "author": "nexus",
+  "description": "Facebook Messenger embedded in Nexus.",
+  "url": "https://www.messenger.com",
+  "icon": "icon.svg",
+  "partition": "persist:messenger",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "notifications": {
+    "kind": "title",
+    "pattern": "\\((\\d+)\\)"
+  }
+}
