@@ -279,6 +279,9 @@ export class IpcService implements Service {
         // Lock current views before switching — they belong to the outgoing
         // profile's partitions and state.
         views.destroyAll();
+        // Drop unread counts from the outgoing profile so they don't bleed
+        // into the new profile's dock badge total.
+        notifications.resetCounts();
         await profiles.unlock(id, password);
         settings.setActiveProfileId(id);
         // Warm up the newly-unlocked profile's instances so the sidebar
@@ -303,6 +306,7 @@ export class IpcService implements Service {
     this.router.register(IPC.PROFILES_LOCK, {
       handler: () => {
         views.destroyAll();
+        notifications.resetCounts();
         profiles.lock();
         settings.setActiveProfileId(null);
       },
@@ -316,6 +320,7 @@ export class IpcService implements Service {
         // partitions we're about to wipe.
         if (profiles.activeProfileId() === id) {
           views.destroyAll();
+          notifications.resetCounts();
           settings.setActiveProfileId(null);
         }
         await profiles.deleteProfile(id);

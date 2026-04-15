@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useContentBounds } from '../hooks/useContentBounds';
 import { useNexus } from '../store';
+import appIcon from '../assets/app-icon.png';
 
 interface Props {
   hasActive: boolean;
@@ -15,7 +16,7 @@ export function ContentArea({ hasActive }: Props) {
     <main ref={ref} className="content-area">
       {!hasActive && (
         <div className="empty-state">
-          <div className="empty-logo">N</div>
+          <img className="empty-logo app-icon-img" src={appIcon} alt="" draggable={false} />
           <h2>Welcome to Nexus</h2>
           {instances.length === 0 ? (
             <>

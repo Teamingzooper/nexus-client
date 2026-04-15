@@ -184,6 +184,42 @@ describe('NotificationService', () => {
     expect(notifications.all()).toEqual({ whatsapp: 4, telegram: 1 });
   });
 
+  describe('resetCounts', () => {
+    it('drops every tracked count and zeros the badge', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'darwin' });
+      try {
+        const { bus, notifications } = await makeContainer();
+        bus.emit('notification:update', { moduleId: 'whatsapp', count: 12 });
+        bus.emit('notification:update', { moduleId: 'telegram', count: 1 });
+        expect(notifications.all()).toEqual({ whatsapp: 12, telegram: 1 });
+
+        dockMock.setBadge.mockClear();
+        notifications.resetCounts();
+
+        expect(notifications.all()).toEqual({});
+        expect(dockMock.setBadge).toHaveBeenCalledWith('');
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      }
+    });
+
+    it('broadcasts UNREAD_UPDATE:0 for every previously-tracked instance', async () => {
+      const { bus, win, notifications } = await makeContainer();
+      bus.emit('notification:update', { moduleId: 'whatsapp', count: 12 });
+      bus.emit('notification:update', { moduleId: 'telegram', count: 1 });
+
+      // Clear prior broadcasts so we only see resetCounts output.
+      win.messages.length = 0;
+      notifications.resetCounts();
+
+      // Both should have been sent with count: 0.
+      const zeros = win.messages.filter((m) => m.payload.count === 0);
+      const ids = zeros.map((m) => m.payload.moduleId).sort();
+      expect(ids).toEqual(['telegram', 'whatsapp']);
+    });
+  });
+
   describe('native notifications', () => {
     it('shows a native notification formatted with the instance name', async () => {
       const { bus, profiles } = await makeContainer();

@@ -83,6 +83,25 @@ export class NotificationService implements Service {
     return Object.fromEntries(this.counts);
   }
 
+  /**
+   * Drop every tracked unread count and zero out the dock badge. Called on
+   * profile switch/lock so counts from instances that are no longer visible
+   * (different profile) don't inflate the dock total. The renderer also
+   * gets a UNREAD_UPDATE with count: 0 for every entry so its local copy
+   * can drop too.
+   */
+  resetCounts(): void {
+    const ids = [...this.counts.keys()];
+    this.counts.clear();
+    this.previews.clear();
+    for (const id of ids) {
+      this.broadcast({ moduleId: id, count: 0 });
+    }
+    if (process.platform === 'darwin') {
+      app.dock?.setBadge('');
+    }
+  }
+
   private broadcast(update: UnreadUpdate): void {
     const win = this.windowService.getWindow();
     if (win && !win.isDestroyed()) {

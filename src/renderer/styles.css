@@ -415,6 +415,16 @@ kbd {
   font-weight: 800;
 }
 
+.app-icon-img {
+  object-fit: cover;
+  background: transparent;
+  padding: 0;
+}
+
+img.sidebar-logo.app-icon-img {
+  background: transparent;
+}
+
 .module-list {
   list-style: none;
   margin: 0;
@@ -638,16 +648,12 @@ kbd {
 }
 
 .empty-logo {
-  width: 64px;
-  height: 64px;
+  width: 96px;
+  height: 96px;
   margin: 0 auto 20px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--nx-accent) 0%, var(--nx-badge) 100%);
-  color: var(--nx-accent-fg);
-  display: grid;
-  place-items: center;
-  font-size: 32px;
-  font-weight: 800;
+  border-radius: 22px;
+  display: block;
+  object-fit: cover;
 }
 
 .empty-state h2 {

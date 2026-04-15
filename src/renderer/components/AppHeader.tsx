@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNexus } from '../store';
+import appIcon from '../assets/app-icon.png';
 
 interface Props {
   onOpenSettings: () => void;
@@ -17,9 +18,13 @@ export function AppHeader({ onOpenSettings }: Props) {
   return (
     <header className="app-header" role="banner">
       <div className="app-header-left">
-        <div className="sidebar-logo" aria-hidden="true">
-          N
-        </div>
+        <img
+          className="sidebar-logo app-icon-img"
+          src={appIcon}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
         <button
           className="header-btn header-settings-btn"
           onClick={onOpenSettings}
