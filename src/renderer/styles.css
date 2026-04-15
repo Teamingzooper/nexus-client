@@ -97,18 +97,119 @@ kbd {
 
 .app {
   display: flex;
+  flex-direction: column;
   height: 100vh;
   width: 100vw;
 }
 
+.app-header {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px 0 84px; /* leave room for macOS traffic lights on the left */
+  background: var(--nx-sidebar);
+  border-bottom: 1px solid var(--nx-border);
+  -webkit-app-region: drag;
+}
+
+.app-header button,
+.app-header input,
+.app-header .app-header-right {
+  -webkit-app-region: no-drag;
+}
+
+.app-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.app-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-title {
+  font-weight: 600;
+  color: var(--nx-text);
+}
+
+.app-subtitle {
+  color: var(--nx-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-header-right {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.header-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--nx-text-muted);
+  border: 1px solid var(--nx-border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  transition:
+    color var(--nx-transition),
+    background var(--nx-transition),
+    border-color var(--nx-transition),
+    transform var(--nx-transition);
+}
+
+.header-btn:hover:not(:disabled) {
+  color: var(--nx-text);
+  background: var(--nx-sidebar-hover);
+  border-color: var(--nx-accent);
+}
+
+.header-btn:active:not(:disabled) svg {
+  transform: rotate(-180deg);
+}
+
+.header-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.header-btn svg {
+  transition: transform 300ms ease;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
 .sidebar {
-  width: 220px;
+  width: 240px;
   background: var(--nx-sidebar);
   border-right: 1px solid var(--nx-border);
   display: flex;
   flex-direction: column;
-  padding-top: 40px;
   flex-shrink: 0;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0 4px;
 }
 
 .sidebar-header {
@@ -125,6 +226,112 @@ kbd {
   letter-spacing: 0.2px;
 }
 
+.sidebar-group {
+  padding: 2px 6px 6px;
+}
+
+.sidebar-group + .sidebar-group {
+  margin-top: 2px;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  color: var(--nx-text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.group-toggle {
+  background: transparent;
+  border: none;
+  color: var(--nx-text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  display: grid;
+  place-items: center;
+  transition: transform var(--nx-transition);
+}
+
+.sidebar-group:not(.collapsed) .group-toggle svg {
+  transform: rotate(90deg);
+}
+
+.group-name {
+  background: transparent;
+  border: none;
+  color: var(--nx-text-muted);
+  cursor: pointer;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  padding: 2px 4px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.group-name:hover {
+  color: var(--nx-text);
+}
+
+.group-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--nx-bg);
+  color: var(--nx-text-muted);
+}
+
+.group-rename-input {
+  flex: 1;
+  background: var(--nx-bg);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-accent);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font: inherit;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.group-delete {
+  background: transparent;
+  border: none;
+  color: var(--nx-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 6px;
+  opacity: 0;
+  transition: opacity var(--nx-transition), color var(--nx-transition);
+}
+
+.group-header:hover .group-delete {
+  opacity: 1;
+}
+
+.group-delete:hover {
+  color: var(--nx-badge);
+}
+
+.group-empty {
+  padding: 10px 12px;
+  color: var(--nx-text-muted);
+  font-size: 11px;
+  text-align: center;
+  border: 1px dashed var(--nx-border);
+  border-radius: 6px;
+  margin: 4px 6px 2px;
+}
+
 .sidebar-logo {
   display: grid;
   place-items: center;
@@ -139,13 +346,24 @@ kbd {
 .module-list {
   list-style: none;
   margin: 0;
-  padding: 8px;
-  flex: 1;
-  overflow-y: auto;
+  padding: 2px 6px 0;
 }
 
-.module-list li {
+.module-list .module-li {
+  position: relative;
   margin-bottom: 2px;
+}
+
+.module-list .module-li.dragging .module-item {
+  opacity: 0.4;
+}
+
+.drop-indicator {
+  height: 2px;
+  background: var(--nx-accent);
+  border-radius: 2px;
+  margin: 2px 4px;
+  box-shadow: 0 0 4px var(--nx-accent);
 }
 
 .module-list .empty {
@@ -153,6 +371,56 @@ kbd {
   font-size: 12px;
   padding: 12px;
   line-height: 1.5;
+}
+
+.module-remove {
+  background: transparent;
+  border: none;
+  color: var(--nx-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 6px;
+  opacity: 0;
+  transition: opacity var(--nx-transition), color var(--nx-transition);
+}
+
+.module-item:hover .module-remove {
+  opacity: 1;
+}
+
+.module-remove:hover {
+  color: var(--nx-badge);
+}
+
+.sidebar-footer {
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--nx-border);
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sidebar-action {
+  background: transparent;
+  color: var(--nx-text-muted);
+  border: 1px solid var(--nx-border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all var(--nx-transition);
+}
+
+.sidebar-action:hover {
+  color: var(--nx-text);
+  background: var(--nx-sidebar-hover);
+  border-color: var(--nx-accent);
+}
+
+.sidebar-footer .settings-btn {
+  margin: 0;
+  flex: 1;
 }
 
 .module-item {
@@ -164,10 +432,12 @@ kbd {
   color: var(--nx-text);
   border: 1px solid transparent;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 7px 6px 7px 10px;
   cursor: pointer;
   font-size: 13px;
   text-align: left;
+  position: relative;
+  user-select: none;
   transition:
     background var(--nx-transition),
     border-color var(--nx-transition),

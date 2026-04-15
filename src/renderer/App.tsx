@@ -4,6 +4,7 @@ import { Sidebar } from './components/Sidebar';
 import { ContentArea } from './components/ContentArea';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { AppHeader } from './components/AppHeader';
 import { applyTheme } from './theme';
 import { useShortcuts } from './hooks/useShortcuts';
 
@@ -77,8 +78,11 @@ export function App() {
   return (
     <ErrorBoundary>
       <div className="app">
-        <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
-        <ContentArea hasActive={!!activeModuleId} />
+        <AppHeader />
+        <div className="app-body">
+          <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
+          <ContentArea hasActive={!!activeModuleId} />
+        </div>
         {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
       </div>
     </ErrorBoundary>

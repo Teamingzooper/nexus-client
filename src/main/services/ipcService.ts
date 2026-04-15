@@ -6,6 +6,7 @@ import {
   themeIdSchema,
   themeSchema,
 } from '../../shared/schemas';
+import { sidebarLayoutSchema } from '../../shared/sidebarLayout';
 import type { Service, ServiceContext } from '../core/service';
 import { IpcRouter } from '../core/ipcRouter';
 import type { Logger } from '../core/logger';
@@ -101,6 +102,14 @@ export class IpcService implements Service {
     });
 
     this.router.register(IPC.UNREAD_ALL, { handler: () => notifications.all() });
+
+    this.router.register(IPC.SIDEBAR_UPDATE_LAYOUT, {
+      input: sidebarLayoutSchema,
+      handler: (layout) => {
+        settings.setSidebarLayout(layout);
+        return settings.state.sidebarLayout;
+      },
+    });
   }
 
   dispose(): void {

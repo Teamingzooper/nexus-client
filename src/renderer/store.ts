@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { LoadedModule, Theme, AppState } from '../shared/types';
+import type { LoadedModule, Theme, AppState, SidebarLayout } from '../shared/types';
+import { defaultLayout } from '../shared/sidebarLayout';
 
 interface NexusStore {
   modules: LoadedModule[];
@@ -18,12 +19,14 @@ interface NexusStore {
   setTheme(id: string): Promise<void>;
   saveTheme(theme: Theme): Promise<void>;
   deleteTheme(id: string): Promise<void>;
+  updateLayout(layout: SidebarLayout): Promise<void>;
 }
 
 const DEFAULT_STATE: AppState = {
   activeModuleId: null,
   enabledModuleIds: [],
   themeId: 'nexus-dark',
+  sidebarLayout: defaultLayout(),
 };
 
 export const useNexus = create<NexusStore>((set, get) => ({
@@ -106,5 +109,19 @@ export const useNexus = create<NexusStore>((set, get) => ({
       themes,
       state: s.state.themeId === id ? { ...s.state, themeId: 'nexus-dark' } : s.state,
     }));
+  },
+
+  async updateLayout(layout) {
+    // Optimistic update so drag feedback is instant.
+    set((s) => ({ state: { ...s.state, sidebarLayout: layout } }));
+    try {
+      const saved = await window.nexus.updateSidebarLayout(layout);
+      set((s) => ({ state: { ...s.state, sidebarLayout: saved } }));
+    } catch (err) {
+      // Revert on failure by re-fetching.
+      const state = await window.nexus.getState();
+      set({ state });
+      throw err;
+    }
   },
 }));

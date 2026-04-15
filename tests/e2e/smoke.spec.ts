@@ -2,9 +2,33 @@ import { test, expect } from './fixtures';
 
 test('launches and renders the shell', async ({ mainWindow }) => {
   await expect(mainWindow.locator('.app')).toBeVisible();
+  await expect(mainWindow.locator('.app-header')).toBeVisible();
   await expect(mainWindow.locator('.sidebar')).toBeVisible();
   await expect(mainWindow.locator('.content-area')).toBeVisible();
   await expect(mainWindow.locator('.empty-state h2')).toHaveText('Welcome to Nexus');
+});
+
+test('app header shows a refresh button (disabled when no active module)', async ({
+  mainWindow,
+}) => {
+  const btn = mainWindow.locator('.header-btn', { hasText: 'Refresh' });
+  await expect(btn).toBeVisible();
+  await expect(btn).toBeDisabled();
+});
+
+test('sidebar renders a default group "Modules"', async ({ mainWindow }) => {
+  await expect(mainWindow.locator('.sidebar-group')).toHaveCount(1);
+  await expect(mainWindow.locator('.group-name').first()).toContainText('Modules');
+});
+
+test('new-group button creates an additional group', async ({ mainWindow }) => {
+  // Stub window.prompt so the test is deterministic.
+  await mainWindow.evaluate(() => {
+    (window as any).prompt = () => 'Work';
+  });
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Group' }).click();
+  await expect(mainWindow.locator('.sidebar-group')).toHaveCount(2);
+  await expect(mainWindow.locator('.group-name').nth(1)).toContainText('Work');
 });
 
 test('sidebar shows bundled modules as enableable', async ({ mainWindow }) => {

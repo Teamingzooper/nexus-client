@@ -1,6 +1,13 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { IPC } from '../shared/types';
-import type { LoadedModule, Theme, AppState, UnreadUpdate, Bounds } from '../shared/types';
+import type {
+  LoadedModule,
+  Theme,
+  AppState,
+  UnreadUpdate,
+  Bounds,
+  SidebarLayout,
+} from '../shared/types';
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string; details?: unknown };
 
@@ -33,6 +40,8 @@ const api = {
   setContentBounds: (bounds: Bounds): Promise<void> => invoke(IPC.LAYOUT_SET_BOUNDS, bounds),
   setViewsSuspended: (suspended: boolean): Promise<void> =>
     invoke(IPC.LAYOUT_SUSPEND, suspended),
+  updateSidebarLayout: (layout: SidebarLayout): Promise<SidebarLayout> =>
+    invoke(IPC.SIDEBAR_UPDATE_LAYOUT, layout),
 
   onUnread: (cb: (update: UnreadUpdate) => void): (() => void) => {
     const listener = (_: unknown, update: UnreadUpdate) => cb(update);

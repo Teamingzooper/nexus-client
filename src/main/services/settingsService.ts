@@ -1,7 +1,8 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { appStateSchema } from '../../shared/schemas';
-import type { AppState } from '../../shared/types';
+import type { AppState, SidebarLayout } from '../../shared/types';
+import { defaultLayout, reconcile } from '../../shared/sidebarLayout';
 import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 
@@ -9,6 +10,7 @@ const DEFAULT_STATE: AppState = {
   activeModuleId: null,
   enabledModuleIds: [],
   themeId: 'nexus-dark',
+  sidebarLayout: defaultLayout(),
   windowState: { width: 1280, height: 820 },
 };
 
@@ -48,6 +50,17 @@ export class SettingsService implements Service {
       if (err?.code !== 'ENOENT') this.logger.warn('state load error', err);
       this._state = { ...DEFAULT_STATE };
     }
+    this.reconcileLayout();
+  }
+
+  private reconcileLayout(): void {
+    const layout = this._state.sidebarLayout ?? defaultLayout();
+    const reconciled = reconcile(layout, this._state.enabledModuleIds);
+    if (JSON.stringify(reconciled) !== JSON.stringify(layout)) {
+      this._state = { ...this._state, sidebarLayout: reconciled };
+    } else if (!this._state.sidebarLayout) {
+      this._state = { ...this._state, sidebarLayout: reconciled };
+    }
   }
 
   private queueWrite(): void {
@@ -74,6 +87,7 @@ export class SettingsService implements Service {
         ...this._state,
         enabledModuleIds: [...this._state.enabledModuleIds, id],
       };
+      this.reconcileLayout();
       this.queueWrite();
     }
   }
@@ -84,6 +98,14 @@ export class SettingsService implements Service {
       enabledModuleIds: this._state.enabledModuleIds.filter((m) => m !== id),
       activeModuleId: this._state.activeModuleId === id ? null : this._state.activeModuleId,
     };
+    this.reconcileLayout();
+    this.queueWrite();
+  }
+
+  setSidebarLayout(layout: SidebarLayout): void {
+    // Reconcile against current enabled modules so the UI can't drop or duplicate ids.
+    const reconciled = reconcile(layout, this._state.enabledModuleIds);
+    this._state = { ...this._state, sidebarLayout: reconciled };
     this.queueWrite();
   }
 

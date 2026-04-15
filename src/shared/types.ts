@@ -14,6 +14,7 @@ export type ThemeColors = z.infer<typeof themeColorsSchema>;
 export type AppState = z.infer<typeof appStateSchema>;
 export type NotificationStrategySpec = z.infer<typeof notificationSchema>;
 export type Bounds = z.infer<typeof boundsSchema>;
+export type { SidebarLayout, SidebarGroup, DropTarget } from './sidebarLayout';
 
 export interface LoadedModule {
   manifest: ModuleManifest;
@@ -50,6 +51,7 @@ export const IPC = {
   STATE_GET: 'nexus:state:get',
   LAYOUT_SET_BOUNDS: 'nexus:layout:set-bounds',
   LAYOUT_SUSPEND: 'nexus:layout:suspend',
+  SIDEBAR_UPDATE_LAYOUT: 'nexus:sidebar:update-layout',
   UNREAD_UPDATE: 'nexus:unread:update',
   UNREAD_ALL: 'nexus:unread:all',
 } as const;

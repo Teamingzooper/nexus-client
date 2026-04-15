@@ -1,4 +1,11 @@
-import type { LoadedModule, Theme, AppState, UnreadUpdate, Bounds } from '../shared/types';
+import type {
+  LoadedModule,
+  Theme,
+  AppState,
+  UnreadUpdate,
+  Bounds,
+  SidebarLayout,
+} from '../shared/types';
 
 declare global {
   interface Window {
@@ -19,6 +26,7 @@ declare global {
       getState(): Promise<AppState>;
       setContentBounds(bounds: Bounds): Promise<void>;
       setViewsSuspended(suspended: boolean): Promise<void>;
+      updateSidebarLayout(layout: SidebarLayout): Promise<SidebarLayout>;
 
       onUnread(cb: (update: UnreadUpdate) => void): () => void;
       getAllUnread(): Promise<Record<string, number>>;

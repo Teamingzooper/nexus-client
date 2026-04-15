@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { sidebarLayoutSchema } from './sidebarLayout';
 
 export const notificationSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -99,6 +100,7 @@ export const appStateSchema = z.object({
   activeModuleId: z.string().nullable(),
   enabledModuleIds: z.array(moduleIdSchema),
   themeId: themeIdSchema,
+  sidebarLayout: sidebarLayoutSchema.optional(),
   windowState: z
     .object({
       x: z.number().optional(),
