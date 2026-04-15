@@ -39,19 +39,16 @@ jobs:
       - name: Build main + renderer bundles
         run: npm run build
 
-      - name: Build & publish (macOS arm64)
+      - name: Build & publish (macOS — arm64 + x64)
         if: matrix.os == 'macos-latest'
-        run: npx electron-builder --mac --arm64 --publish always
+        # Single invocation so electron-builder's internal retry loop can
+        # absorb the hdiutil resize race that fires when two DMGs are
+        # created in parallel. Config in package.json already declares
+        # arch: [x64, arm64] on both DMG and ZIP targets.
+        run: npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Unsigned build — set CSC_LINK / CSC_KEY_PASSWORD to sign.
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-
-      - name: Build & publish (macOS x64)
-        if: matrix.os == 'macos-latest'
-        run: npx electron-builder --mac --x64 --publish always
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Build & publish (Windows)
