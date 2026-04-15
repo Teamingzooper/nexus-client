@@ -65,6 +65,7 @@ export function Sidebar({ onOpenSettings }: Props) {
   const onItemDragOver = (e: React.DragEvent, groupId: string, moduleId: string) => {
     if (!e.dataTransfer.types.includes(DRAG_MIME)) return;
     e.preventDefault();
+    e.stopPropagation(); // prevent the group-level handler from overriding with "append"
     e.dataTransfer.dropEffect = 'move';
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const above = e.clientY < rect.top + rect.height / 2;
@@ -73,6 +74,7 @@ export function Sidebar({ onOpenSettings }: Props) {
 
   const onItemDrop = (e: React.DragEvent, groupId: string, moduleId: string) => {
     e.preventDefault();
+    e.stopPropagation();
     const dragged = e.dataTransfer.getData(DRAG_MIME);
     if (!dragged || dragged === moduleId) {
       onDragEnd();
@@ -112,16 +114,26 @@ export function Sidebar({ onOpenSettings }: Props) {
   };
 
   const onAddGroup = () => {
-    const name = window.prompt('New group name', 'Group');
-    if (!name) return;
-    const id = slugify(name) || `group-${Date.now()}`;
+    // Pick a unique id/name ("Group", "Group 2", ...).
+    const existingIds = new Set(layout.groups.map((g) => g.id));
+    let n = layout.groups.length;
+    let id: string;
+    let name: string;
+    do {
+      n += 1;
+      name = n === 1 ? 'Group' : `Group ${n}`;
+      id = slugify(name) || `group-${Date.now()}`;
+    } while (existingIds.has(id));
     commit(addGroup(layout, { id, name, moduleIds: [] }));
+    // Drop straight into rename mode for the new group.
+    setEditingGroupId(id);
   };
 
   const onRenameGroup = (groupId: string, name: string) => {
     setEditingGroupId(null);
-    if (!name.trim()) return;
-    commit(renameGroup(layout, groupId, name.trim()));
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    commit(renameGroup(layout, groupId, trimmed));
   };
 
   const onToggleGroup = (groupId: string) => {
@@ -130,12 +142,6 @@ export function Sidebar({ onOpenSettings }: Props) {
 
   const onDeleteGroup = (group: SidebarGroup) => {
     if (layout.groups.length <= 1) return;
-    if (group.moduleIds.length > 0) {
-      const ok = window.confirm(
-        `Delete group "${group.name}"? Its modules will move to the first group.`,
-      );
-      if (!ok) return;
-    }
     commit(deleteGroup(layout, group.id));
   };
 
@@ -148,12 +154,20 @@ export function Sidebar({ onOpenSettings }: Props) {
             .filter((m): m is NonNullable<typeof m> => !!m);
           const isEditing = editingGroupId === group.id;
 
+          const isDropTarget = dropHint === `${group.id}:append`;
           return (
             <section
               key={group.id}
-              className={`sidebar-group ${group.collapsed ? 'collapsed' : ''}`}
+              className={`sidebar-group ${group.collapsed ? 'collapsed' : ''} ${isDropTarget ? 'drop-target' : ''}`}
               onDragOver={(e) => onGroupDragOver(e, group.id)}
               onDrop={(e) => onGroupDrop(e, group.id)}
+              onDragLeave={(e) => {
+                // Only clear when leaving the section entirely, not child elements.
+                const rt = e.relatedTarget as Node | null;
+                if (!rt || !(e.currentTarget as Node).contains(rt)) {
+                  setDropHint((h) => (h === `${group.id}:append` ? null : h));
+                }
+              }}
             >
               <header className="group-header">
                 <button
@@ -178,6 +192,7 @@ export function Sidebar({ onOpenSettings }: Props) {
                     autoFocus
                     className="group-rename-input"
                     defaultValue={group.name}
+                    onFocus={(e) => e.currentTarget.select()}
                     onBlur={(e) => onRenameGroup(group.id, e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
@@ -216,19 +231,20 @@ export function Sidebar({ onOpenSettings }: Props) {
                     const hintKey = `${group.id}:${m.manifest.id}`;
                     const showAbove = dropHint === `${hintKey}:before`;
                     const showBelow = dropHint === `${hintKey}:after`;
+                    const dropPos = showAbove ? 'before' : showBelow ? 'after' : null;
                     return (
                       <li
                         key={m.manifest.id}
                         className={`module-li ${dragId === m.manifest.id ? 'dragging' : ''}`}
+                        data-drop={dropPos ?? undefined}
+                        onDragOver={(e) => onItemDragOver(e, group.id, m.manifest.id)}
+                        onDrop={(e) => onItemDrop(e, group.id, m.manifest.id)}
                       >
-                        {showAbove && <div className="drop-indicator" />}
                         <div
                           className={`module-item ${isActive ? 'active' : ''}`}
                           draggable
                           onDragStart={(e) => onDragStart(e, m.manifest.id)}
                           onDragEnd={onDragEnd}
-                          onDragOver={(e) => onItemDragOver(e, group.id, m.manifest.id)}
-                          onDrop={(e) => onItemDrop(e, group.id, m.manifest.id)}
                           onClick={() => activate(m.manifest.id)}
                           role="button"
                           tabIndex={0}
@@ -266,7 +282,6 @@ export function Sidebar({ onOpenSettings }: Props) {
                             ×
                           </button>
                         </div>
-                        {showBelow && <div className="drop-indicator" />}
                       </li>
                     );
                   })}

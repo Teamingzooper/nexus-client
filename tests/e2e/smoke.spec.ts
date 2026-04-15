@@ -21,13 +21,14 @@ test('sidebar renders a default group "Modules"', async ({ mainWindow }) => {
   await expect(mainWindow.locator('.group-name').first()).toContainText('Modules');
 });
 
-test('new-group button creates an additional group', async ({ mainWindow }) => {
-  // Stub window.prompt so the test is deterministic.
-  await mainWindow.evaluate(() => {
-    (window as any).prompt = () => 'Work';
-  });
+test('new-group button adds a group and puts it into rename mode', async ({ mainWindow }) => {
   await mainWindow.locator('.sidebar-action', { hasText: '+ Group' }).click();
   await expect(mainWindow.locator('.sidebar-group')).toHaveCount(2);
+  // The new group's name is editable (input is focused).
+  const input = mainWindow.locator('.group-rename-input');
+  await expect(input).toBeVisible();
+  await input.fill('Work');
+  await input.press('Enter');
   await expect(mainWindow.locator('.group-name').nth(1)).toContainText('Work');
 });
 

@@ -352,18 +352,42 @@ kbd {
 .module-list .module-li {
   position: relative;
   margin-bottom: 2px;
+  padding: 1px 0;
 }
 
 .module-list .module-li.dragging .module-item {
   opacity: 0.4;
 }
 
-.drop-indicator {
-  height: 2px;
-  background: var(--nx-accent);
+/* Drop indicator is absolute so hovering doesn't shift layout and re-trigger dragleave. */
+.module-li::before,
+.module-li::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 3px;
+  background: transparent;
   border-radius: 2px;
-  margin: 2px 4px;
-  box-shadow: 0 0 4px var(--nx-accent);
+  pointer-events: none;
+  z-index: 10;
+  transition: background 80ms ease;
+}
+
+.module-li::before { top: -2px; }
+.module-li::after  { bottom: -2px; }
+
+.module-li[data-drop="before"]::before,
+.module-li[data-drop="after"]::after {
+  background: var(--nx-accent);
+  box-shadow: 0 0 6px var(--nx-accent);
+}
+
+.sidebar-group.drop-target {
+  background: color-mix(in srgb, var(--nx-accent) 8%, transparent);
+  border-radius: 8px;
+  outline: 1px dashed var(--nx-accent);
+  outline-offset: -2px;
 }
 
 .module-list .empty {
