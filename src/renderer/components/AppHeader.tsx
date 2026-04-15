@@ -9,6 +9,8 @@ export function AppHeader({ onOpenSettings }: Props) {
   const activeId = useNexus((s) => s.state.activeInstanceId);
   const reloadActive = useNexus((s) => s.reloadActiveInstance);
   const instances = useNexus((s) => s.state.instances);
+  const currentProfile = useNexus((s) => s.currentProfile);
+  const openAccountManager = useNexus((s) => s.openAccountManager);
 
   const active = instances.find((i) => i.id === activeId);
 
@@ -42,10 +44,35 @@ export function AppHeader({ onOpenSettings }: Props) {
         </button>
         <div className="app-header-title">
           <span className="app-title">Nexus</span>
-          {active && <span className="app-subtitle"> · {active.name}</span>}
+          {currentProfile && (
+            <span className="app-subtitle"> · {currentProfile.name}</span>
+          )}
+          {active && <span className="app-subtitle-secondary"> / {active.name}</span>}
         </div>
       </div>
       <div className="app-header-right">
+        <button
+          className="header-btn"
+          onClick={openAccountManager}
+          title="Switch profile"
+          aria-label="Switch profile"
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+          </svg>
+          <span>{currentProfile?.name ?? 'Profile'}</span>
+        </button>
         <button
           className="header-btn"
           onClick={() => reloadActive()}

@@ -62,10 +62,19 @@ class FakeWindowService {
 class FakeSettingsService {
   readonly name = 'settings';
   state = {
+    themeId: 'nexus-dark',
+    activeProfileId: null as string | null,
+    notificationsEnabled: true as boolean,
+    notificationSound: true as boolean,
+  };
+  init() {}
+}
+
+class FakeProfileService {
+  readonly name = 'profiles';
+  state = {
     activeInstanceId: null as string | null,
     instances: [] as Array<{ id: string; moduleId: string; name: string }>,
-    themeId: 'nexus-dark',
-    notificationsEnabled: true as boolean,
   };
   init() {}
   getInstance(id: string) {
@@ -96,15 +105,17 @@ async function makeContainer() {
   });
   const win = new FakeWindowService();
   const settings = new FakeSettingsService();
+  const profiles = new FakeProfileService();
   const views = new FakeViewService();
   const notifications = new NotificationService();
   container
     .register(win as any)
     .register(settings as any)
+    .register(profiles as any)
     .register(views as any)
     .register(notifications);
   await container.init();
-  return { container, bus, win, settings, views, notifications };
+  return { container, bus, win, settings, profiles, views, notifications };
 }
 
 describe('NotificationService', () => {
@@ -175,8 +186,8 @@ describe('NotificationService', () => {
 
   describe('native notifications', () => {
     it('shows a native notification formatted with the instance name', async () => {
-      const { bus, settings } = await makeContainer();
-      settings.addFakeInstance('whatsapp', 'Work');
+      const { bus, profiles } = await makeContainer();
+      profiles.addFakeInstance('whatsapp', 'Work');
       bus.emit('notification:native', {
         instanceId: 'whatsapp',
         title: 'John',
@@ -188,9 +199,9 @@ describe('NotificationService', () => {
     });
 
     it('skips native notifications when the setting is disabled', async () => {
-      const { bus, settings } = await makeContainer();
+      const { bus, settings, profiles } = await makeContainer();
       settings.state.notificationsEnabled = false;
-      settings.addFakeInstance('whatsapp', 'Work');
+      profiles.addFakeInstance('whatsapp', 'Work');
       bus.emit('notification:native', {
         instanceId: 'whatsapp',
         title: 'John',
@@ -210,29 +221,28 @@ describe('NotificationService', () => {
     });
 
     it('click handler focuses window and activates the instance', async () => {
-      const { bus, settings, views, win } = await makeContainer();
-      settings.addFakeInstance('whatsapp', 'Work');
+      const { bus, profiles, views, win } = await makeContainer();
+      profiles.addFakeInstance('whatsapp', 'Work');
       bus.emit('notification:native', {
         instanceId: 'whatsapp',
         title: 'John',
         body: 'Lunch?',
       });
-      // Capture the click handler and invoke it.
       const clickCall = notifMock.on.mock.calls.find((c: any) => c[0] === 'click');
       expect(clickCall).toBeTruthy();
       const clickHandler = clickCall![1];
       clickHandler();
       expect(win.win.focus).toHaveBeenCalled();
       expect(views.activate).toHaveBeenCalledWith('whatsapp');
-      expect(settings.state.activeInstanceId).toBe('whatsapp');
+      expect(profiles.state.activeInstanceId).toBe('whatsapp');
     });
   });
 
   describe('testNotification', () => {
     it('fires a canned notification with the active instance name', async () => {
-      const { settings, notifications } = await makeContainer();
-      settings.addFakeInstance('whatsapp', 'Work');
-      settings.setActive('whatsapp');
+      const { profiles, notifications } = await makeContainer();
+      profiles.addFakeInstance('whatsapp', 'Work');
+      profiles.setActive('whatsapp');
       const ok = notifications.testNotification();
       expect(ok).toBe(true);
       expect(notifMock.show).toHaveBeenCalled();
@@ -248,10 +258,10 @@ describe('NotificationService', () => {
     });
 
     it('honors an explicit instanceId hint', async () => {
-      const { settings, notifications } = await makeContainer();
-      settings.addFakeInstance('whatsapp', 'Work');
-      settings.addFakeInstance('telegram', 'Personal');
-      settings.setActive('whatsapp');
+      const { profiles, notifications } = await makeContainer();
+      profiles.addFakeInstance('whatsapp', 'Work');
+      profiles.addFakeInstance('telegram', 'Personal');
+      profiles.setActive('whatsapp');
       notifications.testNotification('telegram');
       expect(notifMock.lastOpts.title).toBe('[Nexus] Personal');
     });

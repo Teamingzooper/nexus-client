@@ -8,6 +8,7 @@ import type {
   Bounds,
   SidebarLayout,
   ModuleInstance,
+  ProfileSummary,
 } from '../shared/types';
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string; details?: unknown };
@@ -80,6 +81,32 @@ const api = {
     invoke(IPC.PREFS_SET_SIDEBAR_COMPACT, enabled),
   testNotification: (instanceId?: string | null): Promise<boolean> =>
     invoke(IPC.NOTIFY_TEST, instanceId ?? null),
+
+  // Profiles
+  listProfiles: (): Promise<ProfileSummary[]> => invoke(IPC.PROFILES_LIST),
+  currentProfile: (): Promise<ProfileSummary | null> => invoke(IPC.PROFILES_CURRENT),
+  getProfileState: (): Promise<{
+    current: ProfileSummary | null;
+    state: {
+      activeInstanceId: string | null;
+      instances: ModuleInstance[];
+      sidebarLayout?: SidebarLayout;
+    } | null;
+  }> => invoke(IPC.PROFILES_STATE),
+  createProfile: (name: string, password?: string): Promise<ProfileSummary> =>
+    invoke(IPC.PROFILES_CREATE, { name, password }),
+  unlockProfile: (id: string, password?: string): Promise<ProfileSummary | null> =>
+    invoke(IPC.PROFILES_UNLOCK, { id, password }),
+  lockProfile: (): Promise<void> => invoke(IPC.PROFILES_LOCK),
+  deleteProfile: (id: string): Promise<void> => invoke(IPC.PROFILES_DELETE, id),
+  renameProfile: (id: string, name: string): Promise<void> =>
+    invoke(IPC.PROFILES_RENAME, { id, name }),
+  changeProfilePassword: (
+    id: string,
+    oldPassword: string | null,
+    newPassword: string | null,
+  ): Promise<void> =>
+    invoke(IPC.PROFILES_CHANGE_PASSWORD, { id, oldPassword, newPassword }),
 };
 
 contextBridge.exposeInMainWorld('nexus', api);

@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { sidebarLayoutSchema } from './sidebarLayout';
-import { moduleInstanceSchema } from './instance';
+import { profileIdSchema } from './profile';
 
 export const notificationSchema = z.discriminatedUnion('kind', [
   z.object({
@@ -105,15 +104,19 @@ export const moduleIdSchema = z
 
 export const themeIdSchema = moduleIdSchema;
 
+/**
+ * Global app-wide state. Does NOT include instances, sidebar layout, or
+ * active instance — those are per-profile and live in ProfileService.
+ * Only things that apply to the whole app regardless of which profile
+ * is active belong here.
+ */
 export const appStateSchema = z.object({
-  activeInstanceId: z.string().nullable(),
-  instances: z.array(moduleInstanceSchema),
   themeId: themeIdSchema,
+  activeProfileId: profileIdSchema.nullable(),
   notificationsEnabled: z.boolean().optional(),
   notificationSound: z.boolean().optional(),
   launchAtLogin: z.boolean().optional(),
   sidebarCompact: z.boolean().optional(),
-  sidebarLayout: sidebarLayoutSchema.optional(),
   windowState: z
     .object({
       x: z.number().optional(),

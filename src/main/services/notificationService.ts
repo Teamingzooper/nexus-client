@@ -5,6 +5,7 @@ import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 import type { WindowService } from './windowService';
 import type { SettingsService } from './settingsService';
+import type { ProfileService } from './profileService';
 import type { ViewService } from './viewService';
 
 /**
@@ -37,6 +38,7 @@ export class NotificationService implements Service {
   private previews = new Map<string, string>();
   private windowService!: WindowService;
   private settings!: SettingsService;
+  private profiles!: ProfileService;
   private views!: ViewService;
   private unsubscribe: (() => void)[] = [];
 
@@ -44,6 +46,7 @@ export class NotificationService implements Service {
     this.logger = ctx.logger.child('notifications');
     this.windowService = ctx.container.get<WindowService>('window');
     this.settings = ctx.container.get<SettingsService>('settings');
+    this.profiles = ctx.container.get<ProfileService>('profiles');
     this.views = ctx.container.get<ViewService>('views');
 
     this.unsubscribe.push(
@@ -107,14 +110,13 @@ export class NotificationService implements Service {
       return false;
     }
     const explicit = instanceIdHint
-      ? this.settings.getInstance(instanceIdHint)
+      ? this.profiles.getInstance(instanceIdHint)
       : null;
+    const activeId = this.profiles.state.activeInstanceId;
     const fallback =
       explicit ??
-      (this.settings.state.activeInstanceId
-        ? this.settings.getInstance(this.settings.state.activeInstanceId)
-        : null) ??
-      this.settings.state.instances[0] ??
+      (activeId ? this.profiles.getInstance(activeId) : null) ??
+      this.profiles.state.instances[0] ??
       null;
 
     const instanceName = fallback?.name ?? 'Nexus';
@@ -164,7 +166,7 @@ export class NotificationService implements Service {
       this.logger.warn('native notifications not supported on this platform');
       return;
     }
-    const instance = this.settings.getInstance(instanceId);
+    const instance = this.profiles.getInstance(instanceId);
     if (!instance) {
       this.logger.warn(`showNative: unknown instance ${instanceId}`);
       return;
@@ -192,7 +194,7 @@ export class NotificationService implements Service {
         }
         try {
           this.views.activate(instanceId);
-          this.settings.setActive(instanceId);
+          this.profiles.setActive(instanceId);
         } catch (err) {
           this.logger.warn(`notification activate failed for ${instanceId}`, err);
         }

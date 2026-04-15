@@ -18,6 +18,15 @@ export type NotificationStrategySpec = z.infer<typeof notificationSchema>;
 export type Bounds = z.infer<typeof boundsSchema>;
 export type { SidebarLayout, SidebarGroup, DropTarget } from './sidebarLayout';
 export type { ModuleInstance } from './instance';
+export type { ProfileMeta, ProfileState } from './profile';
+
+/** Lightweight summary shown in the UI — never includes crypto material. */
+export interface ProfileSummary {
+  id: string;
+  name: string;
+  createdAt: number;
+  hasPassword: boolean;
+}
 
 export interface LoadedModule {
   manifest: ModuleManifest;
@@ -67,4 +76,13 @@ export const IPC = {
   NOTIFY_TEST: 'nexus:notify:test',
   PREFS_SET_LAUNCH_AT_LOGIN: 'nexus:prefs:set-launch-at-login',
   PREFS_SET_SIDEBAR_COMPACT: 'nexus:prefs:set-sidebar-compact',
+  PROFILES_LIST: 'nexus:profiles:list',
+  PROFILES_CURRENT: 'nexus:profiles:current',
+  PROFILES_STATE: 'nexus:profiles:state',
+  PROFILES_CREATE: 'nexus:profiles:create',
+  PROFILES_UNLOCK: 'nexus:profiles:unlock',
+  PROFILES_LOCK: 'nexus:profiles:lock',
+  PROFILES_DELETE: 'nexus:profiles:delete',
+  PROFILES_RENAME: 'nexus:profiles:rename',
+  PROFILES_CHANGE_PASSWORD: 'nexus:profiles:change-password',
 } as const;

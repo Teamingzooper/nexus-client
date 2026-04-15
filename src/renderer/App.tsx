@@ -7,6 +7,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppHeader } from './components/AppHeader';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { AddInstanceDialog } from './components/AddInstanceDialog';
+import { AccountManager } from './components/AccountManager';
 import { applyTheme } from './theme';
 import { useShortcuts } from './hooks/useShortcuts';
 
@@ -119,6 +120,7 @@ export function App() {
         </div>
         {settingsOpen && <SettingsPanel onClose={closeSettings} />}
         <AddInstanceDialog />
+        <AccountManager />
         <ConfirmDialog />
       </div>
     </ErrorBoundary>

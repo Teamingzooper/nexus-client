@@ -431,3 +431,95 @@ test('General tab shows keyboard shortcuts', async ({ mainWindow }) => {
   await expect(mainWindow.locator('.shortcuts')).toBeVisible();
   await expect(mainWindow.locator('.shortcuts kbd').first()).toBeVisible();
 });
+
+// ─────────────────────────────────────────────────────────── profiles ──
+
+test('default profile auto-unlocks on fresh launch', async ({ mainWindow }) => {
+  // Fresh userData (fixture sets NEXUS_USER_DATA to a temp dir), so the
+  // Default profile is created and auto-unlocked before the window loads.
+  // AccountManager should NOT be visible, and the profile button in the
+  // header should show "Default".
+  await expect(mainWindow.locator('.account-manager')).toHaveCount(0);
+  await expect(
+    mainWindow.locator('.app-header-right .header-btn', { hasText: 'Default' }),
+  ).toBeVisible();
+});
+
+test('clicking the profile button reopens the account manager', async ({ mainWindow }) => {
+  await mainWindow.locator('.app-header-right .header-btn', { hasText: 'Default' }).click();
+  await expect(mainWindow.locator('.account-manager')).toBeVisible();
+  await expect(mainWindow.locator('.profile-card-button')).toHaveCount(2); // Default + new
+});
+
+test('creating a new password-less profile unlocks into it', async ({ mainWindow }) => {
+  await mainWindow.locator('.app-header-right .header-btn', { hasText: 'Default' }).click();
+  await mainWindow.locator('.profile-card-new').click();
+  await mainWindow.locator('.profile-form input').first().fill('Work');
+  await mainWindow.locator('.confirm-ok:has-text("Create profile")').click();
+
+  // Account manager should close and header should show the new profile name.
+  await expect(mainWindow.locator('.account-manager')).toHaveCount(0);
+  await expect(
+    mainWindow.locator('.app-header-right .header-btn', { hasText: 'Work' }),
+  ).toBeVisible();
+});
+
+test('instances from one profile are isolated from another', async ({ mainWindow }) => {
+  // Start on Default (auto-unlocked), create a WhatsApp instance.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await expect(
+    mainWindow.locator('.sidebar .module-item:has-text("WhatsApp")'),
+  ).toBeVisible();
+
+  // Create a second profile and switch to it.
+  await mainWindow.locator('.app-header-right .header-btn', { hasText: 'Default' }).click();
+  await mainWindow.locator('.profile-card-new').click();
+  await mainWindow.locator('.profile-form input').first().fill('Personal');
+  await mainWindow.locator('.confirm-ok:has-text("Create profile")').click();
+  await expect(
+    mainWindow.locator('.app-header-right .header-btn', { hasText: 'Personal' }),
+  ).toBeVisible();
+
+  // Sidebar should be empty in the Personal profile — no WhatsApp.
+  await expect(
+    mainWindow.locator('.sidebar .module-item:has-text("WhatsApp")'),
+  ).toHaveCount(0);
+
+  // Switch back to Default — WhatsApp should reappear.
+  await mainWindow.locator('.app-header-right .header-btn', { hasText: 'Personal' }).click();
+  await mainWindow.locator('.profile-card-button:has-text("Default")').click();
+  await expect(
+    mainWindow.locator('.sidebar .module-item:has-text("WhatsApp")'),
+  ).toBeVisible();
+});
+
+test('password-protected profile prompts for password', async ({ mainWindow }) => {
+  // Create a password-protected profile from Default.
+  await mainWindow.locator('.app-header-right .header-btn', { hasText: 'Default' }).click();
+  await mainWindow.locator('.profile-card-new').click();
+  await mainWindow.locator('.profile-form input').nth(0).fill('Vault');
+  await mainWindow.locator('.profile-form input').nth(1).fill('hunter2');
+  await mainWindow.locator('.profile-form input').nth(2).fill('hunter2');
+  await mainWindow.locator('.confirm-ok:has-text("Create profile")').click();
+
+  // After create, we're returned to the picker (not auto-unlocked because
+  // we have a password). Click the Vault card — it should prompt.
+  await mainWindow.locator('.profile-card-button:has-text("Vault")').click();
+  const pwInput = mainWindow.locator('.profile-form input[type="password"]');
+  await expect(pwInput).toBeVisible();
+
+  // Wrong password shows an error.
+  await pwInput.fill('wrong');
+  await mainWindow.locator('.confirm-ok:has-text("Unlock")').click();
+  await expect(mainWindow.locator('.error-message')).toBeVisible();
+
+  // Correct password unlocks into the Vault profile.
+  await pwInput.fill('hunter2');
+  await mainWindow.locator('.confirm-ok:has-text("Unlock")').click();
+  await expect(mainWindow.locator('.account-manager')).toHaveCount(0);
+  await expect(
+    mainWindow.locator('.app-header-right .header-btn', { hasText: 'Vault' }),
+  ).toBeVisible();
+});

@@ -1,64 +1,27 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { appStateSchema } from '../../shared/schemas';
-import type { AppState, ModuleInstance, SidebarLayout } from '../../shared/types';
-import { defaultLayout, reconcile } from '../../shared/sidebarLayout';
-import { nextInstanceId, nextInstanceName } from '../../shared/instance';
+import type { AppState } from '../../shared/types';
 import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 
+/**
+ * Global app-wide settings: themes, window state, notification prefs,
+ * launch-at-login, compact sidebar, and the currently-active profile id.
+ *
+ * Per-profile data (instances, sidebar layout, active instance) lives in
+ * ProfileService — instances go with whichever profile owns them, not
+ * with the app as a whole.
+ */
 const DEFAULT_STATE: AppState = {
-  activeInstanceId: null,
-  instances: [],
   themeId: 'nexus-dark',
+  activeProfileId: null,
   notificationsEnabled: true,
   notificationSound: true,
   launchAtLogin: false,
   sidebarCompact: false,
-  sidebarLayout: defaultLayout(),
   windowState: { width: 1280, height: 820 },
 };
-
-/**
- * Migrate legacy state shapes into the current one.
- * - enabledModuleIds → instances (one instance per id, using id as instance id)
- * - sidebarLayout.groups[].moduleIds → entryIds
- * Safe to run on already-migrated data.
- */
-function migrate(raw: any): any {
-  if (!raw || typeof raw !== 'object') return raw;
-  const out = { ...raw };
-
-  if (Array.isArray(raw.enabledModuleIds) && !Array.isArray(raw.instances)) {
-    out.instances = raw.enabledModuleIds.map((id: string) => ({
-      id,
-      moduleId: id,
-      name: id,
-    }));
-    delete out.enabledModuleIds;
-  }
-
-  // Rename activeModuleId → activeInstanceId if needed.
-  if ('activeModuleId' in raw && !('activeInstanceId' in raw)) {
-    out.activeInstanceId = raw.activeModuleId ?? null;
-    delete out.activeModuleId;
-  }
-
-  if (raw.sidebarLayout?.groups) {
-    out.sidebarLayout = {
-      ...raw.sidebarLayout,
-      groups: raw.sidebarLayout.groups.map((g: any) => {
-        if ('moduleIds' in g && !('entryIds' in g)) {
-          const { moduleIds, ...rest } = g;
-          return { ...rest, entryIds: moduleIds };
-        }
-        return g;
-      }),
-    };
-  }
-
-  return out;
-}
 
 export class SettingsService implements Service {
   readonly name = 'settings';
@@ -73,7 +36,9 @@ export class SettingsService implements Service {
 
   async init(ctx: ServiceContext): Promise<void> {
     this.logger = ctx.logger.child('settings');
-    this.file = path.join(ctx.userData, 'nexus-state.json');
+    // New filename so the pre-profiles nexus-state.json can be migrated by
+    // ProfileService without being overwritten by this service.
+    this.file = path.join(ctx.userData, 'nexus-app-state.json');
     await fs.mkdir(path.dirname(this.file), { recursive: true });
     await this.load();
   }
@@ -85,29 +50,19 @@ export class SettingsService implements Service {
   private async load(): Promise<void> {
     try {
       const raw = await fs.readFile(this.file, 'utf8');
-      const migrated = migrate(JSON.parse(raw));
-      const parsed = appStateSchema.safeParse(migrated);
+      const parsed = appStateSchema.safeParse(JSON.parse(raw));
       if (parsed.success) {
         this._state = { ...DEFAULT_STATE, ...parsed.data };
       } else {
-        this.logger.warn('state validation failed, reverting to defaults', parsed.error.flatten());
+        this.logger.warn(
+          'app-state validation failed, reverting to defaults',
+          parsed.error.flatten(),
+        );
         this._state = { ...DEFAULT_STATE };
       }
     } catch (err: any) {
-      if (err?.code !== 'ENOENT') this.logger.warn('state load error', err);
+      if (err?.code !== 'ENOENT') this.logger.warn('app-state load error', err);
       this._state = { ...DEFAULT_STATE };
-    }
-    this.reconcileLayout();
-  }
-
-  private reconcileLayout(): void {
-    const layout = this._state.sidebarLayout ?? defaultLayout();
-    const validIds = this._state.instances.map((i) => i.id);
-    const reconciled = reconcile(layout, validIds);
-    if (JSON.stringify(reconciled) !== JSON.stringify(layout)) {
-      this._state = { ...this._state, sidebarLayout: reconciled };
-    } else if (!this._state.sidebarLayout) {
-      this._state = { ...this._state, sidebarLayout: reconciled };
     }
   }
 
@@ -119,7 +74,7 @@ export class SettingsService implements Service {
         await fs.writeFile(tmp, JSON.stringify(snapshot, null, 2), 'utf8');
         await fs.rename(tmp, this.file);
       } catch (err) {
-        this.logger.error('state write failed', err);
+        this.logger.error('app-state write failed', err);
       }
     });
   }
@@ -129,54 +84,9 @@ export class SettingsService implements Service {
     this.queueWrite();
   }
 
-  /** Create a new instance of the given module. Returns the new instance. */
-  addInstance(moduleId: string, moduleName: string): ModuleInstance {
-    const existingIds = this._state.instances.map((i) => i.id);
-    const existingNames = this._state.instances
-      .filter((i) => i.moduleId === moduleId)
-      .map((i) => i.name);
-    const id = nextInstanceId(moduleId, existingIds);
-    const name = nextInstanceName(moduleName, existingNames);
-    const instance: ModuleInstance = { id, moduleId, name, createdAt: Date.now() };
-    this._state = {
-      ...this._state,
-      instances: [...this._state.instances, instance],
-    };
-    this.reconcileLayout();
-    this.queueWrite();
-    return instance;
-  }
-
-  removeInstance(instanceId: string): void {
-    this._state = {
-      ...this._state,
-      instances: this._state.instances.filter((i) => i.id !== instanceId),
-      activeInstanceId:
-        this._state.activeInstanceId === instanceId ? null : this._state.activeInstanceId,
-    };
-    this.reconcileLayout();
-    this.queueWrite();
-  }
-
-  renameInstance(instanceId: string, name: string): void {
-    const trimmed = name.trim();
-    if (!trimmed) return;
-    this._state = {
-      ...this._state,
-      instances: this._state.instances.map((i) =>
-        i.id === instanceId ? { ...i, name: trimmed.slice(0, 96) } : i,
-      ),
-    };
-    this.queueWrite();
-  }
-
-  getInstance(instanceId: string): ModuleInstance | undefined {
-    return this._state.instances.find((i) => i.id === instanceId);
-  }
-
-  setActive(instanceId: string | null): void {
-    if (this._state.activeInstanceId === instanceId) return;
-    this._state = { ...this._state, activeInstanceId: instanceId };
+  setActiveProfileId(id: string | null): void {
+    if (this._state.activeProfileId === id) return;
+    this._state = { ...this._state, activeProfileId: id };
     this.queueWrite();
   }
 
@@ -215,20 +125,13 @@ export class SettingsService implements Service {
     this.queueWrite();
   }
 
-  setSidebarLayout(layout: SidebarLayout): void {
-    const validIds = this._state.instances.map((i) => i.id);
-    const reconciled = reconcile(layout, validIds);
-    this._state = { ...this._state, sidebarLayout: reconciled };
-    this.queueWrite();
-  }
-
-  /** Reset settings to defaults and delete the persisted state file. */
+  /** Reset global settings to defaults. Profile data is wiped separately. */
   async clearAll(): Promise<void> {
     this._state = { ...DEFAULT_STATE };
     try {
       await fs.rm(this.file, { force: true });
     } catch (err) {
-      this.logger.warn('could not remove state file', err);
+      this.logger.warn('could not remove app-state file', err);
     }
   }
 }

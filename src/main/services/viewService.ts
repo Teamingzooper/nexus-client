@@ -7,7 +7,7 @@ import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 import type { ModuleRegistryService } from './moduleRegistryService';
 import type { WindowService } from './windowService';
-import type { SettingsService } from './settingsService';
+import type { ProfileService } from './profileService';
 import { DefaultStrategyFactory } from './notifications/strategies';
 import type { NotificationStrategy, StrategyFactory } from './notifications/strategy';
 import { mainWorldNotificationShim } from './notifications/mainWorldShim';
@@ -28,7 +28,7 @@ export class ViewService implements Service {
   private ctx!: ServiceContext;
   private registry!: ModuleRegistryService;
   private windowService!: WindowService;
-  private settings!: SettingsService;
+  private profiles!: ProfileService;
   private views = new Map<string, ManagedView>();
   private activeId: string | null = null;
   private bounds: Bounds = { x: 220, y: 40, width: 800, height: 600 };
@@ -40,10 +40,19 @@ export class ViewService implements Service {
     this.logger = ctx.logger.child('views');
     this.registry = ctx.container.get<ModuleRegistryService>('modules');
     this.windowService = ctx.container.get<WindowService>('window');
-    this.settings = ctx.container.get<SettingsService>('settings');
+    this.profiles = ctx.container.get<ProfileService>('profiles');
   }
 
   async dispose(): Promise<void> {
+    this.destroyAll();
+  }
+
+  /**
+   * Destroy every currently-mounted view. Called on profile switch so the
+   * outgoing profile's WebContentsViews stop writing to their partitions
+   * before the new profile's views get created.
+   */
+  destroyAll(): void {
     for (const id of [...this.views.keys()]) this.destroy(id);
   }
 
@@ -70,7 +79,7 @@ export class ViewService implements Service {
     const existing = this.views.get(instanceId);
     if (existing) return existing;
 
-    const instance = this.settings.getInstance(instanceId);
+    const instance = this.profiles.getInstance(instanceId);
     if (!instance) throw new Error(`instance not found: ${instanceId}`);
 
     const mod = this.registry.get(instance.moduleId);
@@ -138,7 +147,12 @@ export class ViewService implements Service {
    * slate in case the partition id was reused from a previously deleted instance).
    */
   async clearInstanceData(instanceId: string): Promise<void> {
-    const partition = partitionForInstance(instanceId);
+    // Look up the explicit partition from the instance if possible — new
+    // profile-scoped instances have namespaced partitions that don't match
+    // the default derivation. Falls back to the legacy form if the instance
+    // isn't known (e.g. it was already removed from state before clear).
+    const instance = this.profiles.getInstance(instanceId);
+    const partition = instance?.partition ?? partitionForInstance(instanceId);
     try {
       const ses = session.fromPartition(partition);
       await ses.clearStorageData({
@@ -175,7 +189,10 @@ export class ViewService implements Service {
 
   private create(instance: ModuleInstance, mod: LoadedModule): ManagedView {
     const manifest = mod.manifest;
-    const partition = partitionForInstance(instance.id);
+    // Prefer the instance's explicit partition (set by ProfileService when
+    // creating profile-scoped instances). Fall back to the legacy unnamespaced
+    // form for instances that predate profiles.
+    const partition = instance.partition ?? partitionForInstance(instance.id);
     const ses = session.fromPartition(partition);
 
     const origin = new URL(manifest.url).origin;

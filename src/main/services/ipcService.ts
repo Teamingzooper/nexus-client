@@ -10,6 +10,7 @@ import {
 } from '../../shared/schemas';
 import { sidebarLayoutSchema } from '../../shared/sidebarLayout';
 import { instanceIdSchema } from '../../shared/instance';
+import { profileIdSchema } from '../../shared/profile';
 import type { WindowService } from './windowService';
 import type { Service, ServiceContext } from '../core/service';
 import { IpcRouter } from '../core/ipcRouter';
@@ -17,6 +18,7 @@ import type { Logger } from '../core/logger';
 import type { SettingsService } from './settingsService';
 import type { ThemeService } from './themeService';
 import type { ModuleRegistryService } from './moduleRegistryService';
+import type { ProfileService } from './profileService';
 import type { ViewService } from './viewService';
 import type { NotificationService } from './notificationService';
 
@@ -32,6 +34,7 @@ export class IpcService implements Service {
     const settings = ctx.container.get<SettingsService>('settings');
     const themes = ctx.container.get<ThemeService>('themes');
     const registry = ctx.container.get<ModuleRegistryService>('modules');
+    const profiles = ctx.container.get<ProfileService>('profiles');
     const views = ctx.container.get<ViewService>('views');
     const notifications = ctx.container.get<NotificationService>('notifications');
     const windowSvc = ctx.container.get<WindowService>('window');
@@ -45,11 +48,12 @@ export class IpcService implements Service {
     this.router.register(IPC.INSTANCES_ADD, {
       input: moduleIdSchema,
       handler: async (moduleId) => {
+        if (profiles.isLocked()) throw new Error('no profile unlocked');
         const mod = registry.get(moduleId);
         if (!mod) throw new Error(`unknown module: ${moduleId}`);
-        const instance = settings.addInstance(moduleId, mod.manifest.name);
-        // Paranoid fresh slate: if this instance id was reused after a previous
-        // delete, make sure we don't inherit any stale partition data.
+        const instance = profiles.addInstance(moduleId, mod.manifest.name);
+        // Paranoid fresh slate: if this partition name was reused after a
+        // previous delete, make sure we don't inherit any stale data.
         await views.clearInstanceData(instance.id);
         ctx.bus.emit('instance:added', { instanceId: instance.id, moduleId });
         return instance;
@@ -59,12 +63,10 @@ export class IpcService implements Service {
     this.router.register(IPC.INSTANCES_REMOVE, {
       input: instanceIdSchema,
       handler: async (instanceId) => {
-        // 1. Tear down the view so nothing is writing to the partition.
+        if (profiles.isLocked()) throw new Error('no profile unlocked');
         views.destroy(instanceId);
-        // 2. Purge persisted data (cookies, localStorage, IndexedDB, cache, ...).
         await views.clearInstanceData(instanceId);
-        // 3. Drop the instance from settings.
-        settings.removeInstance(instanceId);
+        profiles.removeInstance(instanceId);
         ctx.bus.emit('instance:removed', { instanceId });
       },
     });
@@ -72,8 +74,9 @@ export class IpcService implements Service {
     this.router.register(IPC.INSTANCES_RENAME, {
       input: z.object({ id: instanceIdSchema, name: z.string().min(1).max(96) }),
       handler: ({ id, name }) => {
-        if (!settings.getInstance(id)) throw new Error(`unknown instance: ${id}`);
-        settings.renameInstance(id, name);
+        if (profiles.isLocked()) throw new Error('no profile unlocked');
+        if (!profiles.getInstance(id)) throw new Error(`unknown instance: ${id}`);
+        profiles.renameInstance(id, name);
         ctx.bus.emit('instance:renamed', { instanceId: id, name });
       },
     });
@@ -81,11 +84,12 @@ export class IpcService implements Service {
     this.router.register(IPC.INSTANCES_ACTIVATE, {
       input: instanceIdSchema,
       handler: (instanceId) => {
-        if (!settings.getInstance(instanceId)) {
+        if (profiles.isLocked()) throw new Error('no profile unlocked');
+        if (!profiles.getInstance(instanceId)) {
           throw new Error(`unknown instance: ${instanceId}`);
         }
         views.activate(instanceId);
-        settings.setActive(instanceId);
+        profiles.setActive(instanceId);
       },
     });
 
@@ -219,25 +223,120 @@ export class IpcService implements Service {
     this.router.register(IPC.SIDEBAR_UPDATE_LAYOUT, {
       input: sidebarLayoutSchema,
       handler: (layout) => {
-        settings.setSidebarLayout(layout);
-        return settings.state.sidebarLayout;
+        if (profiles.isLocked()) throw new Error('no profile unlocked');
+        profiles.setSidebarLayout(layout);
+        return profiles.state.sidebarLayout;
       },
     });
 
     this.router.register(IPC.APP_CLEAR_ALL_DATA, {
       handler: async () => {
-        // Snapshot instance ids before we wipe state so ViewService can clear
-        // every partition we know about.
-        const instanceIds = settings.state.instances.map((i) => i.id);
+        // Snapshot instance ids from the currently-unlocked profile so
+        // ViewService can clear those partitions. Non-unlocked profiles
+        // still have their state files deleted below.
+        const instanceIds = profiles.state.instances.map((i) => i.id);
         await views.clearAllData(instanceIds);
         await themes.clearAll();
         await settings.clearAll();
-        // Reload the renderer so all in-memory state resets cleanly.
         const win = windowSvc.getWindow();
         if (win && !win.isDestroyed()) {
           win.webContents.reloadIgnoringCache();
         }
       },
+    });
+
+    // ─────────────────────────────────────────────────────── profiles ──
+
+    this.router.register(IPC.PROFILES_LIST, {
+      handler: () => profiles.list(),
+    });
+
+    this.router.register(IPC.PROFILES_CURRENT, {
+      handler: () => profiles.current(),
+    });
+
+    this.router.register(IPC.PROFILES_STATE, {
+      handler: () => ({
+        current: profiles.current(),
+        state: profiles.isLocked() ? null : profiles.state,
+      }),
+    });
+
+    this.router.register(IPC.PROFILES_CREATE, {
+      input: z.object({
+        name: z.string().min(1).max(64),
+        password: z.string().max(256).optional(),
+      }),
+      handler: async (input) => profiles.createProfile(input),
+    });
+
+    this.router.register(IPC.PROFILES_UNLOCK, {
+      input: z.object({
+        id: profileIdSchema,
+        password: z.string().max(256).optional(),
+      }),
+      handler: async ({ id, password }) => {
+        // Lock current views before switching — they belong to the outgoing
+        // profile's partitions and state.
+        views.destroyAll();
+        await profiles.unlock(id, password);
+        settings.setActiveProfileId(id);
+        // Warm up the newly-unlocked profile's instances so the sidebar
+        // feels instant.
+        for (const instance of profiles.state.instances) {
+          if (registry.get(instance.moduleId)) {
+            try {
+              views.ensure(instance.id);
+            } catch (err) {
+              this.logger.warn(`warm ${instance.id} after unlock failed`, err);
+            }
+          }
+        }
+        const activeId = profiles.state.activeInstanceId;
+        if (activeId && profiles.getInstance(activeId)) {
+          views.activate(activeId);
+        }
+        return profiles.current();
+      },
+    });
+
+    this.router.register(IPC.PROFILES_LOCK, {
+      handler: () => {
+        views.destroyAll();
+        profiles.lock();
+        settings.setActiveProfileId(null);
+      },
+    });
+
+    this.router.register(IPC.PROFILES_DELETE, {
+      input: profileIdSchema,
+      handler: async (id) => {
+        // If we're deleting the currently unlocked profile, destroy its
+        // views first so open WebContentsViews don't keep writing to
+        // partitions we're about to wipe.
+        if (profiles.activeProfileId() === id) {
+          views.destroyAll();
+          settings.setActiveProfileId(null);
+        }
+        await profiles.deleteProfile(id);
+      },
+    });
+
+    this.router.register(IPC.PROFILES_RENAME, {
+      input: z.object({ id: profileIdSchema, name: z.string().min(1).max(64) }),
+      handler: ({ id, name }) => {
+        profiles.renameProfile(id, name);
+      },
+    });
+
+    this.router.register(IPC.PROFILES_CHANGE_PASSWORD, {
+      input: z.object({
+        id: profileIdSchema,
+        oldPassword: z.string().max(256).nullable(),
+        newPassword: z.string().max(256).nullable(),
+      }),
+      handler: async ({ id, oldPassword, newPassword }) =>
+        profiles.changePassword(id, oldPassword, newPassword),
     });
   }
 

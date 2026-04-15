@@ -16,6 +16,16 @@ export const moduleInstanceSchema = z.object({
     .regex(/^[a-z0-9][a-z0-9-_]*$/),
   name: z.string().min(1).max(96),
   createdAt: z.number().int().nonnegative().optional(),
+  /**
+   * Explicit Chromium partition override. When set, ViewService uses this
+   * verbatim instead of deriving it from the instance id. Required for
+   * profile-scoped instances (e.g. "persist:work:whatsapp") so switching
+   * profiles actually loads different cookies/storage.
+   */
+  partition: z
+    .string()
+    .regex(/^persist:[a-z0-9][a-z0-9-_:]*$/, 'partition must start with persist: and be lowercase alphanumeric')
+    .optional(),
 });
 
 export type ModuleInstance = z.infer<typeof moduleInstanceSchema>;

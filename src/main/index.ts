@@ -6,11 +6,13 @@ import { EventBus } from './core/eventBus';
 import { SettingsService } from './services/settingsService';
 import { ThemeService } from './services/themeService';
 import { ModuleRegistryService } from './services/moduleRegistryService';
+import { ProfileService } from './services/profileService';
 import { WindowService } from './services/windowService';
 import { ViewService } from './services/viewService';
 import { NotificationService } from './services/notificationService';
 import { MenuService } from './services/menuService';
 import { IpcService } from './services/ipcService';
+import { DEFAULT_PROFILE_ID } from '../shared/profile';
 
 const isDev = process.env.NEXUS_DEV === '1';
 
@@ -59,6 +61,7 @@ async function bootstrap(): Promise<void> {
     .register(new SettingsService())
     .register(new ThemeService())
     .register(new ModuleRegistryService())
+    .register(new ProfileService())
     .register(new WindowService())
     .register(new ViewService())
     .register(new NotificationService())
@@ -69,6 +72,7 @@ async function bootstrap(): Promise<void> {
 
   const windowService = container.get<WindowService>('window');
   const settings = container.get<SettingsService>('settings');
+  const profiles = container.get<ProfileService>('profiles');
   const views = container.get<ViewService>('views');
   const registry = container.get<ModuleRegistryService>('modules');
 
@@ -85,10 +89,35 @@ async function bootstrap(): Promise<void> {
 
   const win = await windowService.create();
 
-  // Warm up existing instances after the window paints so the first frame isn't delayed.
+  // Auto-unlock: if the previously-active profile exists and is password-less,
+  // silently unlock it so returning users skip the picker. Otherwise the
+  // renderer's AccountManager will handle profile selection / password entry.
+  try {
+    const savedActive = settings.state.activeProfileId;
+    const candidate =
+      profiles.list().find((p) => p.id === savedActive) ??
+      // Fallback: on first launch after migration, the Default profile
+      // exists with no password and no prior activeProfileId — unlock it
+      // automatically so nothing changes for single-profile users.
+      (profiles.list().length === 1 ? profiles.list()[0] : null) ??
+      profiles.list().find((p) => p.id === DEFAULT_PROFILE_ID && !p.hasPassword) ??
+      null;
+    if (candidate && !candidate.hasPassword) {
+      await profiles.unlock(candidate.id);
+      settings.setActiveProfileId(candidate.id);
+    }
+  } catch (err) {
+    rootLogger.warn('auto-unlock failed; user will pick via AccountManager', err);
+  }
+
+  // Warm up the unlocked profile's instances after the window paints so the
+  // first frame isn't delayed. If no profile is unlocked (password-protected
+  // startup), the renderer shows the AccountManager and warm-up happens on
+  // unlock instead.
   win.once('ready-to-show', () => {
     setImmediate(() => {
-      for (const instance of settings.state.instances) {
+      if (profiles.isLocked()) return;
+      for (const instance of profiles.state.instances) {
         if (registry.get(instance.moduleId)) {
           try {
             views.ensure(instance.id);
@@ -97,8 +126,8 @@ async function bootstrap(): Promise<void> {
           }
         }
       }
-      const activeId = settings.state.activeInstanceId;
-      if (activeId && settings.getInstance(activeId)) {
+      const activeId = profiles.state.activeInstanceId;
+      if (activeId && profiles.getInstance(activeId)) {
         views.activate(activeId);
       }
     });

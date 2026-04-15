@@ -148,6 +148,14 @@ kbd {
   text-overflow: ellipsis;
 }
 
+.app-subtitle-secondary {
+  color: var(--nx-text-muted);
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .app-header-right {
   display: flex;
   gap: 6px;
@@ -1291,4 +1299,136 @@ kbd {
 /* Settings button in the app header */
 .header-settings-btn {
   margin-left: 4px;
+}
+
+/* ─────────────────────────────────────────────────── Account Manager ── */
+
+.account-manager-backdrop {
+  z-index: 1500;
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.account-manager {
+  width: min(720px, 92vw);
+  max-height: 86vh;
+}
+
+.account-manager .modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: var(--nx-text);
+}
+
+.profile-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.profile-card {
+  position: relative;
+}
+
+.profile-card-button {
+  width: 100%;
+  background: var(--nx-sidebar);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius);
+  padding: 18px 10px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition:
+    background var(--nx-transition),
+    border-color var(--nx-transition),
+    transform var(--nx-transition);
+}
+
+.profile-card-button:hover:not(:disabled) {
+  background: var(--nx-sidebar-hover);
+  border-color: var(--nx-accent);
+  transform: translateY(-1px);
+}
+
+.profile-card-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--nx-accent) 0%, var(--nx-badge) 100%);
+  color: var(--nx-accent-fg);
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.profile-avatar-new {
+  background: transparent;
+  color: var(--nx-text-muted);
+  border: 2px dashed var(--nx-border);
+  font-size: 32px;
+  font-weight: 300;
+}
+
+.profile-card-button:hover .profile-avatar-new {
+  color: var(--nx-accent);
+  border-color: var(--nx-accent);
+}
+
+.profile-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-align: center;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-lock {
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.profile-card-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: transparent;
+  border: none;
+  color: var(--nx-text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: none;
+}
+
+.profile-card:hover .profile-card-delete {
+  display: block;
+}
+
+.profile-card-delete:hover {
+  background: var(--nx-badge);
+  color: var(--nx-badge-fg);
+}
+
+.profile-form {
+  max-width: 480px;
+  margin: 0 auto;
 }

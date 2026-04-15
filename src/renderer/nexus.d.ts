@@ -6,6 +6,7 @@ import type {
   Bounds,
   SidebarLayout,
   ModuleInstance,
+  ProfileSummary,
 } from '../shared/types';
 
 declare global {
@@ -47,6 +48,27 @@ declare global {
       setLaunchAtLogin(enabled: boolean): Promise<void>;
       setSidebarCompact(enabled: boolean): Promise<void>;
       testNotification(instanceId?: string | null): Promise<boolean>;
+
+      listProfiles(): Promise<ProfileSummary[]>;
+      currentProfile(): Promise<ProfileSummary | null>;
+      getProfileState(): Promise<{
+        current: ProfileSummary | null;
+        state: {
+          activeInstanceId: string | null;
+          instances: ModuleInstance[];
+          sidebarLayout?: SidebarLayout;
+        } | null;
+      }>;
+      createProfile(name: string, password?: string): Promise<ProfileSummary>;
+      unlockProfile(id: string, password?: string): Promise<ProfileSummary | null>;
+      lockProfile(): Promise<void>;
+      deleteProfile(id: string): Promise<void>;
+      renameProfile(id: string, name: string): Promise<void>;
+      changeProfilePassword(
+        id: string,
+        oldPassword: string | null,
+        newPassword: string | null,
+      ): Promise<void>;
     };
   }
 }
