@@ -1,12 +1,12 @@
 {
-  "id": "whatsapp",
-  "name": "WhatsApp",
-  "version": "1.1.0",
+  "id": "instagram",
+  "name": "Instagram",
+  "version": "1.0.0",
   "author": "nexus",
-  "description": "WhatsApp Web embedded in Nexus.",
-  "url": "https://web.whatsapp.com",
+  "description": "Instagram Direct Messages embedded in Nexus.",
+  "url": "https://www.instagram.com/direct/inbox/",
   "icon": "icon.svg",
-  "partition": "persist:whatsapp",
+  "partition": "persist:instagram",
   "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
   "notifications": {
     "kind": "title",

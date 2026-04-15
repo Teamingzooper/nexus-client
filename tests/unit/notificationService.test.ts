@@ -227,4 +227,33 @@ describe('NotificationService', () => {
       expect(settings.state.activeInstanceId).toBe('whatsapp');
     });
   });
+
+  describe('testNotification', () => {
+    it('fires a canned notification with the active instance name', async () => {
+      const { settings, notifications } = await makeContainer();
+      settings.addFakeInstance('whatsapp', 'Work');
+      settings.setActive('whatsapp');
+      const ok = notifications.testNotification();
+      expect(ok).toBe(true);
+      expect(notifMock.show).toHaveBeenCalled();
+      expect(notifMock.lastOpts.title).toBe('[Nexus] Work');
+      expect(notifMock.lastOpts.body).toContain('Test notification');
+    });
+
+    it('falls back to "Nexus" when no instance exists', async () => {
+      const { notifications } = await makeContainer();
+      const ok = notifications.testNotification();
+      expect(ok).toBe(true);
+      expect(notifMock.lastOpts.title).toBe('[Nexus] Nexus');
+    });
+
+    it('honors an explicit instanceId hint', async () => {
+      const { settings, notifications } = await makeContainer();
+      settings.addFakeInstance('whatsapp', 'Work');
+      settings.addFakeInstance('telegram', 'Personal');
+      settings.setActive('whatsapp');
+      notifications.testNotification('telegram');
+      expect(notifMock.lastOpts.title).toBe('[Nexus] Personal');
+    });
+  });
 });

@@ -9,9 +9,26 @@ import { ModuleRegistryService } from './services/moduleRegistryService';
 import { WindowService } from './services/windowService';
 import { ViewService } from './services/viewService';
 import { NotificationService } from './services/notificationService';
+import { MenuService } from './services/menuService';
 import { IpcService } from './services/ipcService';
 
 const isDev = process.env.NEXUS_DEV === '1';
+
+// Brand the app as "Nexus" before any Electron init. On macOS the menu bar
+// name is derived from Info.plist when running a packaged .app, but for the
+// bare `electron .` dev flow app.setName still takes effect for dialogs and
+// the dock label on some platforms. Must run before app.whenReady().
+app.setName('Nexus');
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.teamingzooper.nexus');
+}
+app.setAboutPanelOptions({
+  applicationName: 'Nexus',
+  applicationVersion: app.getVersion(),
+  version: app.getVersion(),
+  copyright: 'Copyright © 2026 Teamingzooper',
+  website: 'https://github.com/Teamingzooper/nexus-client',
+});
 
 // E2E / test isolation: each test run can point us at a throwaway userData dir.
 if (process.env.NEXUS_USER_DATA) {
@@ -45,16 +62,28 @@ async function bootstrap(): Promise<void> {
     .register(new WindowService())
     .register(new ViewService())
     .register(new NotificationService())
+    .register(new MenuService())
     .register(new IpcService());
 
   await container.init();
 
   const windowService = container.get<WindowService>('window');
-  const win = await windowService.create();
-
   const settings = container.get<SettingsService>('settings');
   const views = container.get<ViewService>('views');
   const registry = container.get<ModuleRegistryService>('modules');
+
+  // Reconcile the OS-level "launch at login" flag with the persisted setting
+  // on every boot. Cheap, and keeps them in sync if the user toggled via
+  // System Settings → General → Login Items.
+  try {
+    if (settings.state.launchAtLogin) {
+      app.setLoginItemSettings({ openAtLogin: true });
+    }
+  } catch (err) {
+    rootLogger.warn('setLoginItemSettings at boot failed', err);
+  }
+
+  const win = await windowService.create();
 
   // Warm up existing instances after the window paints so the first frame isn't delayed.
   win.once('ready-to-show', () => {
@@ -79,14 +108,12 @@ async function bootstrap(): Promise<void> {
     container.dispose().catch((err) => rootLogger.error('dispose failed', err));
   });
 
+  // Closing the Nexus window quits the whole app on every platform. This
+  // overrides the macOS "keep running in dock after window close" convention
+  // by design — users asked for it because Nexus is a single-window app and
+  // a hidden background process is confusing.
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
-  });
-
-  app.on('activate', async () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      await windowService.create();
-    }
+    app.quit();
   });
 }
 

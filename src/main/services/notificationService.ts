@@ -95,19 +95,80 @@ export class NotificationService implements Service {
   }
 
   /**
+   * Fire a test notification, used by the "Send test notification" button
+   * in Settings. Returns true if the notification was shown, false if it was
+   * suppressed (platform unsupported, no instance available, etc.). This is
+   * the fastest way to verify the main → OS notification path works without
+   * needing a real incoming message from a messaging service.
+   */
+  testNotification(instanceIdHint?: string | null): boolean {
+    if (!ElectronNotification.isSupported()) {
+      this.logger.warn('native notifications not supported on this platform');
+      return false;
+    }
+    const explicit = instanceIdHint
+      ? this.settings.getInstance(instanceIdHint)
+      : null;
+    const fallback =
+      explicit ??
+      (this.settings.state.activeInstanceId
+        ? this.settings.getInstance(this.settings.state.activeInstanceId)
+        : null) ??
+      this.settings.state.instances[0] ??
+      null;
+
+    const instanceName = fallback?.name ?? 'Nexus';
+    const { title, body } = formatNativeNotification({
+      instanceName,
+      title: 'Test notification',
+      body: 'If you can see this, native notifications are working.',
+    });
+
+    try {
+      const notif = new ElectronNotification({
+        title,
+        body,
+        subtitle: process.platform === 'darwin' ? 'Nexus' : undefined,
+        silent: this.settings.state.notificationSound === false,
+      });
+      notif.on('click', () => {
+        const win = this.windowService.getWindow();
+        if (win && !win.isDestroyed()) {
+          if (win.isMinimized()) win.restore();
+          win.show();
+          win.focus();
+        }
+      });
+      notif.show();
+      this.logger.info(`test notification shown (instance=${fallback?.id ?? 'none'})`);
+      return true;
+    } catch (err) {
+      this.logger.warn('test notification failed', err);
+      return false;
+    }
+  }
+
+  /**
    * Show a native OS notification for a message received inside an embedded
    * service view. Gated on:
    *   - global settings.notificationsEnabled (default true)
    *   - Electron Notification.isSupported() for the current platform
    */
   private showNative(instanceId: string, title: string, body: string, _tag?: string): void {
-    if (this.settings.state.notificationsEnabled === false) return;
+    this.logger.debug(`native notification from ${instanceId}: ${title} / ${body}`);
+    if (this.settings.state.notificationsEnabled === false) {
+      this.logger.debug('notifications disabled in settings — suppressing');
+      return;
+    }
     if (!ElectronNotification.isSupported()) {
-      this.logger.debug('native notifications not supported on this platform');
+      this.logger.warn('native notifications not supported on this platform');
       return;
     }
     const instance = this.settings.getInstance(instanceId);
-    if (!instance) return;
+    if (!instance) {
+      this.logger.warn(`showNative: unknown instance ${instanceId}`);
+      return;
+    }
 
     const { title: nTitle, body: nBody } = formatNativeNotification({
       instanceName: instance.name,
@@ -120,7 +181,7 @@ export class NotificationService implements Service {
         title: nTitle,
         body: nBody,
         subtitle: process.platform === 'darwin' ? 'Nexus' : undefined,
-        silent: false,
+        silent: this.settings.state.notificationSound === false,
       });
       notif.on('click', () => {
         const win = this.windowService.getWindow();

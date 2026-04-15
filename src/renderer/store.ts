@@ -33,6 +33,7 @@ interface NexusStore {
   confirm: ConfirmState | null;
   addInstanceOpen: boolean;
   settingsOpen: boolean;
+  overlayCount: number;
 
   init(): Promise<void>;
   activateInstance(instanceId: string): Promise<void>;
@@ -45,6 +46,10 @@ interface NexusStore {
   saveTheme(theme: Theme): Promise<void>;
   deleteTheme(id: string): Promise<void>;
   setNotificationsEnabled(enabled: boolean): Promise<void>;
+  setNotificationSound(enabled: boolean): Promise<void>;
+  setLaunchAtLogin(enabled: boolean): Promise<void>;
+  setSidebarCompact(enabled: boolean): Promise<void>;
+  testNotification(): Promise<boolean>;
   exportThemePack(
     ids: string[],
     meta?: { name?: string; author?: string },
@@ -66,6 +71,12 @@ interface NexusStore {
   openSettings(): void;
   closeSettings(): void;
   toggleSettings(): void;
+
+  // Overlay registry (ref-counted). Any component that needs to cover the
+  // embedded WebContentsView calls pushOverlay() on mount and popOverlay()
+  // on unmount; a single App-level effect suspends views while count > 0.
+  pushOverlay(): void;
+  popOverlay(): void;
 }
 
 const DEFAULT_STATE: AppState = {
@@ -73,6 +84,9 @@ const DEFAULT_STATE: AppState = {
   instances: [],
   themeId: 'nexus-dark',
   notificationsEnabled: true,
+  notificationSound: true,
+  launchAtLogin: false,
+  sidebarCompact: false,
   sidebarLayout: defaultLayout(),
 };
 
@@ -91,6 +105,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
   confirm: null,
   addInstanceOpen: false,
   settingsOpen: false,
+  overlayCount: 0,
 
   async init() {
     try {
@@ -169,6 +184,25 @@ export const useNexus = create<NexusStore>((set, get) => ({
   async setNotificationsEnabled(enabled) {
     await window.nexus.setNotificationsEnabled(enabled);
     set((s) => ({ state: { ...s.state, notificationsEnabled: enabled } }));
+  },
+
+  async setNotificationSound(enabled) {
+    await window.nexus.setNotificationSound(enabled);
+    set((s) => ({ state: { ...s.state, notificationSound: enabled } }));
+  },
+
+  async setLaunchAtLogin(enabled) {
+    await window.nexus.setLaunchAtLogin(enabled);
+    set((s) => ({ state: { ...s.state, launchAtLogin: enabled } }));
+  },
+
+  async setSidebarCompact(enabled) {
+    await window.nexus.setSidebarCompact(enabled);
+    set((s) => ({ state: { ...s.state, sidebarCompact: enabled } }));
+  },
+
+  async testNotification() {
+    return window.nexus.testNotification(null);
   },
 
   async exportThemePack(ids, meta) {
@@ -256,5 +290,13 @@ export const useNexus = create<NexusStore>((set, get) => ({
 
   toggleSettings() {
     set((s) => ({ settingsOpen: !s.settingsOpen }));
+  },
+
+  pushOverlay() {
+    set((s) => ({ overlayCount: s.overlayCount + 1 }));
+  },
+
+  popOverlay() {
+    set((s) => ({ overlayCount: Math.max(0, s.overlayCount - 1) }));
   },
 }));

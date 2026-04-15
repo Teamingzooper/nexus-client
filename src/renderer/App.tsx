@@ -25,15 +25,39 @@ export function App() {
   const openSettings = useNexus((s) => s.openSettings);
   const closeSettings = useNexus((s) => s.closeSettings);
   const toggleSettings = useNexus((s) => s.toggleSettings);
+  const overlayCount = useNexus((s) => s.overlayCount);
 
   useEffect(() => {
     init();
   }, [init]);
 
+  // Native app menu dispatches. The main-process MenuService fires these via
+  // nexus:menu IPC so items like "Settings…" and "New Instance…" in the
+  // macOS menu bar route through the same store actions as the in-app UI.
+  useEffect(() => {
+    const unsubscribe = window.nexus.onMenu((event) => {
+      if (event === 'open-settings') {
+        useNexus.getState().openSettings();
+      } else if (event === 'add-instance') {
+        useNexus.getState().openAddInstance();
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => {
     const theme = previewTheme ?? themes.find((t) => t.id === themeId) ?? themes[0];
     if (theme) applyTheme(theme);
   }, [themes, themeId, previewTheme]);
+
+  // Central rule: whenever any Nexus overlay is active (Settings, Confirm,
+  // AddInstance, any future dialog using useOverlay), collapse the active
+  // WebContentsView to zero bounds so the React UI renders above it. This is
+  // THE mechanism that keeps Nexus chrome visible — every modal opts in via
+  // the useOverlay hook; there is no other source of suspension.
+  useEffect(() => {
+    window.nexus.setViewsSuspended(overlayCount > 0).catch(() => {});
+  }, [overlayCount]);
 
   const flattenedInstanceIds = useMemo(() => {
     if (!layout) return [] as string[];

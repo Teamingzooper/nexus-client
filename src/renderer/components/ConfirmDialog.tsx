@@ -1,9 +1,11 @@
 import React, { useEffect, useRef } from 'react';
 import { useNexus } from '../store';
+import { useOverlay } from '../hooks/useOverlay';
 
 export function ConfirmDialog() {
   const confirm = useNexus((s) => s.confirm);
   const confirmBtnRef = useRef<HTMLButtonElement>(null);
+  useOverlay(confirm !== null);
 
   useEffect(() => {
     if (!confirm) return;

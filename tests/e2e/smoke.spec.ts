@@ -38,10 +38,12 @@ test('settings modules tab lists bundled modules with + Add buttons', async ({
   await mainWindow.locator('.header-settings-btn').click();
   await expect(mainWindow.locator('.modal')).toBeVisible();
   const cards = mainWindow.locator('.module-settings li.module-card');
-  await expect(cards).toHaveCount(3);
-  await expect(
-    mainWindow.locator('.module-settings li:has-text("WhatsApp") button:has-text("+ Add")'),
-  ).toBeVisible();
+  await expect(cards).toHaveCount(4);
+  for (const name of ['WhatsApp', 'Telegram', 'Messenger', 'Instagram']) {
+    await expect(
+      mainWindow.locator(`.module-settings li:has-text("${name}") button:has-text("+ Add")`),
+    ).toBeVisible();
+  }
 });
 
 test('+ Instance opens the picker, picks a module, and defaults the name', async ({
@@ -119,28 +121,172 @@ test('deleting an instance requires confirmation', async ({ mainWindow }) => {
   ).toHaveCount(0);
 });
 
-test('native notifications toggle is visible and defaults to enabled', async ({
+test('any overlay collapses the active WebContentsView to zero bounds (settings)', async ({
+  app,
+  mainWindow,
+}) => {
+  // Seed an instance so a WebContentsView exists and is attached.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await mainWindow.waitForTimeout(300);
+
+  const getActiveBounds = () =>
+    app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const children = (win as any).contentView.children as any[];
+      const last = children[children.length - 1];
+      if (!last || typeof last.getBounds !== 'function') return null;
+      return last.getBounds();
+    });
+
+  const before = await getActiveBounds();
+  expect(before).not.toBeNull();
+  expect(before!.width).toBeGreaterThan(0);
+  expect(before!.height).toBeGreaterThan(0);
+
+  // Open settings — view must collapse.
+  await mainWindow.locator('.header-settings-btn').click();
+  await mainWindow.waitForTimeout(150);
+  const suspended = await getActiveBounds();
+  expect(suspended!.width).toBe(0);
+  expect(suspended!.height).toBe(0);
+
+  // Close settings — view must restore.
+  await mainWindow.keyboard.press('Escape');
+  await mainWindow.waitForTimeout(150);
+  const after = await getActiveBounds();
+  expect(after!.width).toBeGreaterThan(0);
+  expect(after!.height).toBeGreaterThan(0);
+});
+
+test('confirm dialog triggered from sidebar also collapses the view', async ({
+  app,
+  mainWindow,
+}) => {
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await mainWindow.waitForTimeout(300);
+
+  const getActiveBounds = () =>
+    app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const children = (win as any).contentView.children as any[];
+      const last = children[children.length - 1];
+      if (!last || typeof last.getBounds !== 'function') return null;
+      return last.getBounds();
+    });
+
+  // Before: view has real bounds.
+  expect((await getActiveBounds())!.width).toBeGreaterThan(0);
+
+  // Fire the confirm dialog via the sidebar × button.
+  await mainWindow
+    .locator('.sidebar .module-item:has-text("WhatsApp") .module-remove')
+    .click({ force: true });
+  await mainWindow.waitForTimeout(150);
+
+  // View must be suspended so the confirm dialog isn't hidden under it.
+  const suspended = await getActiveBounds();
+  expect(suspended!.width).toBe(0);
+  expect(suspended!.height).toBe(0);
+
+  // Cancel — view restores.
+  await mainWindow.locator('.confirm-cancel').click();
+  await mainWindow.waitForTimeout(150);
+  expect((await getActiveBounds())!.width).toBeGreaterThan(0);
+});
+
+test('add-instance dialog also suspends views when opened over an active instance', async ({
+  app,
+  mainWindow,
+}) => {
+  // Create one instance first.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await mainWindow.waitForTimeout(300);
+
+  const getActiveBounds = () =>
+    app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      const children = (win as any).contentView.children as any[];
+      const last = children[children.length - 1];
+      if (!last || typeof last.getBounds !== 'function') return null;
+      return last.getBounds();
+    });
+
+  // Open + Instance again to get the picker — view must collapse.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.waitForTimeout(150);
+  const suspended = await getActiveBounds();
+  expect(suspended!.width).toBe(0);
+});
+
+test('Notifications tab exposes enable toggle, sound toggle, and test button', async ({
   mainWindow,
 }) => {
   await mainWindow.locator('.header-settings-btn').click();
-  const toggle = mainWindow.locator('.settings-toggle input[type="checkbox"]');
-  await expect(toggle).toBeVisible();
-  await expect(toggle).toBeChecked();
+  await mainWindow.locator('.tab:has-text("Notifications")').click();
+
+  const enableToggle = mainWindow
+    .locator('.settings-toggle:has-text("Enable native notifications") input[type="checkbox"]');
+  await expect(enableToggle).toBeVisible();
+  await expect(enableToggle).toBeChecked();
+
+  const soundToggle = mainWindow
+    .locator('.settings-toggle:has-text("Play notification sound") input[type="checkbox"]');
+  await expect(soundToggle).toBeVisible();
+  await expect(soundToggle).toBeChecked();
+
   await expect(
-    mainWindow.locator('.settings-toggle-title', { hasText: 'Native notifications' }),
+    mainWindow.locator('.settings-action-row button:has-text("Send test notification")'),
   ).toBeVisible();
-  // Toggle off, then on again.
-  await toggle.click();
-  await expect(toggle).not.toBeChecked();
-  await toggle.click();
-  await expect(toggle).toBeChecked();
+
+  // Toggling the enable flag disables the sound toggle (sound gated on enable).
+  await enableToggle.click();
+  await expect(soundToggle).toBeDisabled();
+  await enableToggle.click();
+  await expect(soundToggle).toBeEnabled();
+});
+
+test('General tab has launch-at-login, compact sidebar, and danger zone', async ({
+  mainWindow,
+}) => {
+  await mainWindow.locator('.header-settings-btn').click();
+  await mainWindow.locator('.tab:has-text("General")').click();
+  await expect(
+    mainWindow.locator('.settings-toggle:has-text("Launch at login")'),
+  ).toBeVisible();
+  await expect(
+    mainWindow.locator('.settings-toggle:has-text("Compact sidebar")'),
+  ).toBeVisible();
+  await expect(mainWindow.locator('.danger-button:has-text("Clear all data")')).toBeVisible();
+});
+
+test('Compact sidebar toggle shrinks the sidebar', async ({ mainWindow }) => {
+  const sidebar = mainWindow.locator('.sidebar');
+  const wide = await sidebar.boundingBox();
+  expect(wide!.width).toBeGreaterThan(180);
+
+  await mainWindow.locator('.header-settings-btn').click();
+  await mainWindow.locator('.tab:has-text("General")').click();
+  await mainWindow
+    .locator('.settings-toggle:has-text("Compact sidebar") input[type="checkbox"]')
+    .click();
+  await mainWindow.keyboard.press('Escape');
+  // Give the CSS transition a frame to settle.
+  await mainWindow.waitForTimeout(250);
+  const narrow = await sidebar.boundingBox();
+  expect(narrow!.width).toBeLessThan(120);
 });
 
 test('clear all data button lives in settings with a confirm guard', async ({
   mainWindow,
 }) => {
   await mainWindow.locator('.header-settings-btn').click();
-  await mainWindow.locator('.tab:has-text("About")').click();
+  await mainWindow.locator('.tab:has-text("General")').click();
   const btn = mainWindow.locator('.danger-button:has-text("Clear all data")');
   await expect(btn).toBeVisible();
   await btn.click();
@@ -279,9 +425,9 @@ test('reload modules button does not blow up the shell', async ({ mainWindow }) 
   await expect(mainWindow.locator('.modal')).toBeVisible();
 });
 
-test('about tab shows keyboard shortcuts', async ({ mainWindow }) => {
+test('General tab shows keyboard shortcuts', async ({ mainWindow }) => {
   await mainWindow.locator('.header-settings-btn').click();
-  await mainWindow.locator('.tab:has-text("About")').click();
+  await mainWindow.locator('.tab:has-text("General")').click();
   await expect(mainWindow.locator('.shortcuts')).toBeVisible();
   await expect(mainWindow.locator('.shortcuts kbd').first()).toBeVisible();
 });

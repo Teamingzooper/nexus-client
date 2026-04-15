@@ -248,6 +248,7 @@ export class ViewService implements Service {
       const body = typeof r.body === 'string' ? r.body : '';
       const tag = typeof r.tag === 'string' ? r.tag : undefined;
       if (!title && !body) return;
+      this.logger.debug(`notify from ${instance.id}: ${title} / ${body}`);
       this.ctx.bus.emit('notification:native', {
         instanceId: instance.id,
         title,

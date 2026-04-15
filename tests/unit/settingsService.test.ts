@@ -203,6 +203,26 @@ describe('SettingsService', () => {
     await s.dispose();
   });
 
+  it('new boolean settings default correctly and round-trip through disk', async () => {
+    const s1 = new SettingsService();
+    await s1.init(makeCtx(tmp));
+    expect(s1.state.notificationSound).toBe(true);
+    expect(s1.state.launchAtLogin).toBe(false);
+    expect(s1.state.sidebarCompact).toBe(false);
+
+    s1.setNotificationSound(false);
+    s1.setLaunchAtLogin(true);
+    s1.setSidebarCompact(true);
+    await s1.dispose();
+
+    const s2 = new SettingsService();
+    await s2.init(makeCtx(tmp));
+    expect(s2.state.notificationSound).toBe(false);
+    expect(s2.state.launchAtLogin).toBe(true);
+    expect(s2.state.sidebarCompact).toBe(true);
+    await s2.dispose();
+  });
+
   it('notificationsEnabled defaults to true and round-trips through disk', async () => {
     const s1 = new SettingsService();
     await s1.init(makeCtx(tmp));

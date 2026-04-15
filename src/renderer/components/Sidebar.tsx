@@ -28,6 +28,7 @@ export function Sidebar() {
   const layout = useNexus((s) => s.state.sidebarLayout ?? defaultLayout());
   const activeId = useNexus((s) => s.state.activeInstanceId);
   const unread = useNexus((s) => s.unread);
+  const compact = useNexus((s) => s.state.sidebarCompact ?? false);
   const activate = useNexus((s) => s.activateInstance);
   const removeInstance = useNexus((s) => s.removeInstance);
   const renameInstance = useNexus((s) => s.renameInstance);
@@ -181,7 +182,10 @@ export function Sidebar() {
   };
 
   return (
-    <nav className="sidebar" aria-label="Modules">
+    <nav
+      className={`sidebar ${compact ? 'compact' : ''}`}
+      aria-label="Modules"
+    >
       <div className="sidebar-scroll">
         {layout.groups.map((group) => {
           const isEditing = editingGroupId === group.id;
