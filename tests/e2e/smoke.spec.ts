@@ -38,10 +38,12 @@ test('settings modules tab lists bundled modules with + Add buttons', async ({
   await mainWindow.locator('.header-settings-btn').click();
   await expect(mainWindow.locator('.modal')).toBeVisible();
   const cards = mainWindow.locator('.module-settings li.module-card');
-  await expect(cards).toHaveCount(3);
-  await expect(
-    mainWindow.locator('.module-settings li:has-text("WhatsApp") button:has-text("+ Add")'),
-  ).toBeVisible();
+  await expect(cards).toHaveCount(4);
+  for (const name of ['WhatsApp', 'Telegram', 'Messenger', 'Instagram']) {
+    await expect(
+      mainWindow.locator(`.module-settings li:has-text("${name}") button:has-text("+ Add")`),
+    ).toBeVisible();
+  }
 });
 
 test('+ Instance opens the picker, picks a module, and defaults the name', async ({
