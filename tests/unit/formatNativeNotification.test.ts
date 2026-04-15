@@ -18,13 +18,16 @@ vi.mock('electron', () => ({
 import { formatNativeNotification } from '../../src/main/services/notificationService';
 
 describe('formatNativeNotification', () => {
-  it('prefixes title with [Nexus] and the instance name', () => {
+  it('uses the instance name verbatim as the title (no [Nexus] prefix)', () => {
     const out = formatNativeNotification({
       instanceName: 'Work',
       title: 'John Doe',
       body: 'Lunch?',
     });
-    expect(out.title).toBe('[Nexus] Work');
+    expect(out.title).toBe('Work');
+    // Belt-and-suspenders: explicitly assert no leftover Nexus branding.
+    expect(out.title).not.toContain('Nexus');
+    expect(out.title).not.toContain('[');
   });
 
   it('joins title and body with ": " when both present', () => {
@@ -78,7 +81,7 @@ describe('formatNativeNotification', () => {
       title: '🎉',
       body: 'Party time',
     });
-    expect(out.title).toBe('[Nexus] Работа');
+    expect(out.title).toBe('Работа');
     expect(out.body).toBe('🎉: Party time');
   });
 

@@ -230,8 +230,13 @@ describe('NotificationService', () => {
         body: 'Lunch?',
       });
       expect(notifMock.show).toHaveBeenCalled();
-      expect(notifMock.lastOpts.title).toBe('[Nexus] Work');
+      expect(notifMock.lastOpts.title).toBe('Work');
       expect(notifMock.lastOpts.body).toBe('John: Lunch?');
+      // No "Nexus" branding in title or subtitle anymore.
+      expect(notifMock.lastOpts.subtitle).toBeUndefined();
+      // Icon path is set so the notification shows the Nexus logo.
+      expect(typeof notifMock.lastOpts.icon).toBe('string');
+      expect(notifMock.lastOpts.icon).toMatch(/icon\.png$/);
     });
 
     it('skips native notifications when the setting is disabled', async () => {
@@ -282,15 +287,17 @@ describe('NotificationService', () => {
       const ok = notifications.testNotification();
       expect(ok).toBe(true);
       expect(notifMock.show).toHaveBeenCalled();
-      expect(notifMock.lastOpts.title).toBe('[Nexus] Work');
+      expect(notifMock.lastOpts.title).toBe('Work');
       expect(notifMock.lastOpts.body).toContain('Test notification');
+      expect(notifMock.lastOpts.subtitle).toBeUndefined();
     });
 
     it('falls back to "Nexus" when no instance exists', async () => {
       const { notifications } = await makeContainer();
       const ok = notifications.testNotification();
       expect(ok).toBe(true);
-      expect(notifMock.lastOpts.title).toBe('[Nexus] Nexus');
+      // With no instance, the fallback display name is the literal "Nexus".
+      expect(notifMock.lastOpts.title).toBe('Nexus');
     });
 
     it('honors an explicit instanceId hint', async () => {
@@ -299,7 +306,7 @@ describe('NotificationService', () => {
       profiles.addFakeInstance('telegram', 'Personal');
       profiles.setActive('whatsapp');
       notifications.testNotification('telegram');
-      expect(notifMock.lastOpts.title).toBe('[Nexus] Personal');
+      expect(notifMock.lastOpts.title).toBe('Personal');
     });
   });
 });

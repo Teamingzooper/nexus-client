@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Notification as ElectronNotification } from 'electron';
+import * as path from 'path';
 import { IPC } from '../../shared/types';
 import type { UnreadUpdate } from '../../shared/types';
 import type { Service, ServiceContext } from '../core/service';
@@ -12,8 +13,12 @@ import type { ViewService } from './viewService';
  * Format the title/body pair we show in the native OS notification.
  * Pure, so it's easy to unit-test.
  *
- *   format({ instanceName: 'Work', title: 'John Doe', body: 'Lunch?' })
- *     => { title: '[Nexus] Work', body: 'John Doe: Lunch?' }
+ *   format({ instanceName: 'Personal', title: 'Peter Hollon', body: 'Hi' })
+ *     => { title: 'Personal', body: 'Peter Hollon: Hi' }
+ *
+ * The title is just the instance name — the OS already labels the
+ * notification as "Nexus" via the bundle id, so prefixing the title
+ * with "[Nexus]" was redundant and visually noisy.
  *
  * Empty source title leaves the body unchanged (no leading colon).
  */
@@ -26,9 +31,24 @@ export function formatNativeNotification(input: {
   const b = (input.body ?? '').trim();
   const composedBody = t && b ? `${t}: ${b}` : t || b || '';
   return {
-    title: `[Nexus] ${input.instanceName}`,
+    title: input.instanceName,
     body: composedBody,
   };
+}
+
+/**
+ * Resolve the path to the bundled Nexus icon for use as a Notification
+ * icon. In a packaged build, electron-builder copies build/icon.png to
+ * Contents/Resources/icon.png via extraResources. In dev, we resolve
+ * relative to the repo root.
+ */
+function resolveIconPath(): string {
+  if (app.isPackaged) {
+    return path.join(process.resourcesPath, 'icon.png');
+  }
+  // From dist/main/main/services/notificationService.js up to the repo root
+  // is four levels (services → main → main → dist → repo).
+  return path.join(__dirname, '..', '..', '..', '..', 'build', 'icon.png');
 }
 
 export class NotificationService implements Service {
@@ -149,7 +169,7 @@ export class NotificationService implements Service {
       const notif = new ElectronNotification({
         title,
         body,
-        subtitle: process.platform === 'darwin' ? 'Nexus' : undefined,
+        icon: resolveIconPath(),
         silent: this.settings.state.notificationSound === false,
       });
       notif.on('click', () => {
@@ -201,7 +221,7 @@ export class NotificationService implements Service {
       const notif = new ElectronNotification({
         title: nTitle,
         body: nBody,
-        subtitle: process.platform === 'darwin' ? 'Nexus' : undefined,
+        icon: resolveIconPath(),
         silent: this.settings.state.notificationSound === false,
       });
       notif.on('click', () => {
