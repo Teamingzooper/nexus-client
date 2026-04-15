@@ -58,6 +58,7 @@ export const IPC = {
   LAYOUT_SET_BOUNDS: 'nexus:layout:set-bounds',
   LAYOUT_SUSPEND: 'nexus:layout:suspend',
   SIDEBAR_UPDATE_LAYOUT: 'nexus:sidebar:update-layout',
+  APP_CLEAR_ALL_DATA: 'nexus:app:clear-all-data',
   UNREAD_UPDATE: 'nexus:unread:update',
   UNREAD_ALL: 'nexus:unread:all',
 } as const;

@@ -202,4 +202,25 @@ describe('SettingsService', () => {
     expect(s.state.sidebarLayout?.groups[0].entryIds).toEqual(['whatsapp', 'whatsapp-2']);
     await s.dispose();
   });
+
+  it('clearAll resets every field to defaults and removes the state file', async () => {
+    const s = new SettingsService();
+    await s.init(makeCtx(tmp));
+    s.addInstance('whatsapp', 'WhatsApp');
+    s.setTheme('nexus-light');
+    s.setActive('whatsapp');
+    await s.dispose();
+    await s.init(makeCtx(tmp));
+    expect(s.state.instances).toHaveLength(1);
+
+    await s.clearAll();
+    expect(s.state.instances).toEqual([]);
+    expect(s.state.activeInstanceId).toBeNull();
+    expect(s.state.themeId).toBe('nexus-dark');
+
+    // File should be gone.
+    await expect(
+      fs.access(path.join(tmp, 'nexus-state.json')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
 });

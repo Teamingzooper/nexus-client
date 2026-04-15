@@ -16,17 +16,13 @@ import {
   toggleCollapsed,
 } from '../../shared/sidebarLayout';
 
-interface Props {
-  onOpenSettings: () => void;
-}
-
 const DRAG_MIME = 'application/x-nexus-instance';
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 48);
 }
 
-export function Sidebar({ onOpenSettings }: Props) {
+export function Sidebar() {
   const modules = useNexus((s) => s.modules);
   const instances = useNexus((s) => s.state.instances);
   const layout = useNexus((s) => s.state.sidebarLayout ?? defaultLayout());
@@ -36,6 +32,8 @@ export function Sidebar({ onOpenSettings }: Props) {
   const removeInstance = useNexus((s) => s.removeInstance);
   const renameInstance = useNexus((s) => s.renameInstance);
   const updateLayout = useNexus((s) => s.updateLayout);
+  const openAddInstance = useNexus((s) => s.openAddInstance);
+  const showConfirm = useNexus((s) => s.showConfirm);
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null);
@@ -116,8 +114,20 @@ export function Sidebar({ onOpenSettings }: Props) {
     onDragEnd();
   };
 
-  const onRemove = (instanceId: string) => {
-    removeInstance(instanceId).catch((err) => console.error('remove failed', err));
+  const onRemove = async (instance: ModuleInstance) => {
+    const ok = await showConfirm({
+      title: `Delete ${instance.name}?`,
+      message:
+        'This instance will be removed from the sidebar and all of its session data (cookies, login state, local storage) will be permanently erased. This cannot be undone.',
+      confirmLabel: 'Delete and wipe data',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await removeInstance(instance.id);
+    } catch (err) {
+      console.error('remove failed', err);
+    }
   };
 
   const onAddGroup = () => {
@@ -154,8 +164,19 @@ export function Sidebar({ onOpenSettings }: Props) {
     commit(toggleCollapsed(layout, groupId));
   };
 
-  const onDeleteGroup = (group: SidebarGroup) => {
+  const onDeleteGroup = async (group: SidebarGroup) => {
     if (layout.groups.length <= 1) return;
+    const n = group.entryIds.length;
+    const ok = await showConfirm({
+      title: `Delete group "${group.name}"?`,
+      message:
+        n > 0
+          ? `This group contains ${n} instance${n === 1 ? '' : 's'}. They will be moved into the first remaining group (their data is not affected).`
+          : 'This group is empty. It will be removed from the sidebar.',
+      confirmLabel: 'Delete group',
+      danger: true,
+    });
+    if (!ok) return;
     commit(deleteGroup(layout, group.id));
   };
 
@@ -316,7 +337,7 @@ export function Sidebar({ onOpenSettings }: Props) {
                               aria-label={`Remove ${instance.name}`}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                onRemove(instance.id);
+                                onRemove(instance);
                               }}
                             >
                               ×
@@ -337,16 +358,15 @@ export function Sidebar({ onOpenSettings }: Props) {
       </div>
 
       <div className="sidebar-footer">
+        <button
+          className="sidebar-action"
+          onClick={openAddInstance}
+          title="Add an instance of a module"
+        >
+          + Instance
+        </button>
         <button className="sidebar-action" onClick={onAddGroup} title="New group">
           + Group
-        </button>
-        <button
-          className="settings-btn"
-          onClick={onOpenSettings}
-          title="Settings (⌘,)"
-          aria-label="Open settings"
-        >
-          <span aria-hidden="true">⚙</span> Settings
         </button>
       </div>
     </nav>

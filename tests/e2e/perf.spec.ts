@@ -5,7 +5,7 @@ test('cold launch to interactive under 6 seconds', async ({ app, mainWindow }) =
   // Here we just assert responsiveness: the sidebar is visible and a click round-trips.
   const start = Date.now();
   await expect(mainWindow.locator('.sidebar')).toBeVisible();
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   await expect(mainWindow.locator('.modal')).toBeVisible();
   const elapsed = Date.now() - start;
   expect(elapsed).toBeLessThan(6000);
@@ -15,7 +15,7 @@ test('settings open/close cycle is under 200ms each', async ({ mainWindow }) => 
   const samples: number[] = [];
   for (let i = 0; i < 5; i++) {
     const t0 = Date.now();
-    await mainWindow.locator('.settings-btn').click();
+    await mainWindow.locator('.header-settings-btn').click();
     await mainWindow.locator('.modal').waitFor({ state: 'visible' });
     const opened = Date.now() - t0;
 

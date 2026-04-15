@@ -130,6 +130,42 @@ export class ViewService implements Service {
     this.ctx.bus.emit('view:destroyed', { instanceId });
   }
 
+  /**
+   * Purge all persisted data for an instance — cookies, localStorage, IndexedDB,
+   * service workers, cache, everything. Safe to call on partitions that don't
+   * exist yet (no-op). Used on remove (trash data) and on add (paranoid fresh
+   * slate in case the partition id was reused from a previously deleted instance).
+   */
+  async clearInstanceData(instanceId: string): Promise<void> {
+    const partition = partitionForInstance(instanceId);
+    try {
+      const ses = session.fromPartition(partition);
+      await ses.clearStorageData({
+        storages: [
+          'cookies',
+          'filesystem',
+          'indexdb',
+          'localstorage',
+          'shadercache',
+          'websql',
+          'serviceworkers',
+          'cachestorage',
+        ],
+      });
+      await ses.clearCache();
+      await ses.clearAuthCache();
+      this.logger.info(`cleared data for instance ${instanceId}`);
+    } catch (err) {
+      this.logger.warn(`clearInstanceData failed for ${instanceId}`, err);
+    }
+  }
+
+  /** Destroy every view and wipe every partition we know about. */
+  async clearAllData(instanceIds: string[]): Promise<void> {
+    for (const id of [...this.views.keys()]) this.destroy(id);
+    await Promise.all(instanceIds.map((id) => this.clearInstanceData(id)));
+  }
+
   reloadActive(): void {
     if (!this.activeId) return;
     const mv = this.views.get(this.activeId);

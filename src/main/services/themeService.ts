@@ -176,4 +176,15 @@ export class ThemeService implements Service {
     }
     return candidate;
   }
+
+  /** Delete every user theme. Built-ins are preserved. */
+  async clearAll(): Promise<void> {
+    this.themes.clear();
+    for (const t of BUILT_INS) this.themes.set(t.id, t);
+    try {
+      await fs.rm(this.file, { force: true });
+    } catch (err) {
+      this.logger.warn('could not remove themes file', err);
+    }
+  }
 }

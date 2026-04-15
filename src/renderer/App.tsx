@@ -1,10 +1,12 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNexus } from './store';
 import { Sidebar } from './components/Sidebar';
 import { ContentArea } from './components/ContentArea';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppHeader } from './components/AppHeader';
+import { ConfirmDialog } from './components/ConfirmDialog';
+import { AddInstanceDialog } from './components/AddInstanceDialog';
 import { applyTheme } from './theme';
 import { useShortcuts } from './hooks/useShortcuts';
 
@@ -19,7 +21,10 @@ export function App() {
   const layout = useNexus((s) => s.state.sidebarLayout);
   const activateInstance = useNexus((s) => s.activateInstance);
   const reloadActiveInstance = useNexus((s) => s.reloadActiveInstance);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsOpen = useNexus((s) => s.settingsOpen);
+  const openSettings = useNexus((s) => s.openSettings);
+  const closeSettings = useNexus((s) => s.closeSettings);
+  const toggleSettings = useNexus((s) => s.toggleSettings);
 
   useEffect(() => {
     init();
@@ -44,7 +49,7 @@ export function App() {
     {
       mod: true,
       key: ',',
-      run: () => setSettingsOpen((v) => !v),
+      run: () => toggleSettings(),
       description: 'Toggle settings',
     },
     {
@@ -83,12 +88,14 @@ export function App() {
   return (
     <ErrorBoundary>
       <div className="app">
-        <AppHeader />
+        <AppHeader onOpenSettings={openSettings} />
         <div className="app-body">
-          <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
+          <Sidebar />
           <ContentArea hasActive={!!activeInstanceId} />
         </div>
-        {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
+        {settingsOpen && <SettingsPanel onClose={closeSettings} />}
+        <AddInstanceDialog />
+        <ConfirmDialog />
       </div>
     </ErrorBoundary>
   );

@@ -953,3 +953,189 @@ kbd {
   margin: 0;
   color: var(--nx-text);
 }
+
+.danger-zone {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--nx-badge);
+  border-radius: var(--nx-radius-sm);
+  background: color-mix(in srgb, var(--nx-badge) 6%, transparent);
+}
+
+.danger-zone h3 {
+  margin: 0 0 8px;
+  color: var(--nx-badge);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.danger-zone p {
+  margin: 0 0 12px;
+  color: var(--nx-text-muted);
+  font-size: 12px;
+}
+
+.danger-button {
+  background: var(--nx-badge);
+  color: var(--nx-badge-fg);
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--nx-radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.danger-button:hover {
+  opacity: 0.9;
+}
+
+/* Confirm dialog */
+.confirm-backdrop {
+  z-index: 2000;
+}
+
+.confirm-modal {
+  width: min(440px, 92vw);
+  background: var(--nx-bg);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius);
+  padding: 20px 22px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+  animation: modal-rise 160ms ease-out;
+}
+
+.confirm-modal.danger {
+  border-color: var(--nx-badge);
+}
+
+.confirm-modal h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--nx-text);
+}
+
+.confirm-modal.danger h2 {
+  color: var(--nx-badge);
+}
+
+.confirm-modal p {
+  margin: 0 0 18px;
+  color: var(--nx-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.confirm-actions button {
+  background: var(--nx-sidebar);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-sm);
+  padding: 7px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.confirm-actions button:hover:not(:disabled) {
+  background: var(--nx-sidebar-hover);
+}
+
+.confirm-actions .confirm-ok {
+  background: var(--nx-accent);
+  color: var(--nx-accent-fg);
+  border-color: var(--nx-accent);
+}
+
+.confirm-actions .confirm-ok.danger {
+  background: var(--nx-badge);
+  color: var(--nx-badge-fg);
+  border-color: var(--nx-badge);
+}
+
+.confirm-actions button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Add Instance dialog */
+.add-instance-modal {
+  width: min(540px, 92vw);
+}
+
+.module-picker {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.module-picker-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--nx-sidebar);
+  color: var(--nx-text);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--nx-transition);
+}
+
+.module-picker-item:hover {
+  background: var(--nx-sidebar-hover);
+  border-color: var(--nx-accent);
+}
+
+.module-picker-item img,
+.module-picker-item .icon-placeholder {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.module-picker-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.add-instance-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.selected-module {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: var(--nx-sidebar);
+  border: 1px solid var(--nx-border);
+  border-radius: var(--nx-radius-sm);
+}
+
+.selected-module img,
+.selected-module .icon-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+}
+
+/* Settings button in the app header */
+.header-settings-btn {
+  margin-left: 4px;
+}

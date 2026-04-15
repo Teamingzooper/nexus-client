@@ -44,10 +44,13 @@ export class IpcService implements Service {
 
     this.router.register(IPC.INSTANCES_ADD, {
       input: moduleIdSchema,
-      handler: (moduleId) => {
+      handler: async (moduleId) => {
         const mod = registry.get(moduleId);
         if (!mod) throw new Error(`unknown module: ${moduleId}`);
         const instance = settings.addInstance(moduleId, mod.manifest.name);
+        // Paranoid fresh slate: if this instance id was reused after a previous
+        // delete, make sure we don't inherit any stale partition data.
+        await views.clearInstanceData(instance.id);
         ctx.bus.emit('instance:added', { instanceId: instance.id, moduleId });
         return instance;
       },
@@ -55,8 +58,12 @@ export class IpcService implements Service {
 
     this.router.register(IPC.INSTANCES_REMOVE, {
       input: instanceIdSchema,
-      handler: (instanceId) => {
+      handler: async (instanceId) => {
+        // 1. Tear down the view so nothing is writing to the partition.
         views.destroy(instanceId);
+        // 2. Purge persisted data (cookies, localStorage, IndexedDB, cache, ...).
+        await views.clearInstanceData(instanceId);
+        // 3. Drop the instance from settings.
         settings.removeInstance(instanceId);
         ctx.bus.emit('instance:removed', { instanceId });
       },
@@ -174,6 +181,22 @@ export class IpcService implements Service {
       handler: (layout) => {
         settings.setSidebarLayout(layout);
         return settings.state.sidebarLayout;
+      },
+    });
+
+    this.router.register(IPC.APP_CLEAR_ALL_DATA, {
+      handler: async () => {
+        // Snapshot instance ids before we wipe state so ViewService can clear
+        // every partition we know about.
+        const instanceIds = settings.state.instances.map((i) => i.id);
+        await views.clearAllData(instanceIds);
+        await themes.clearAll();
+        await settings.clearAll();
+        // Reload the renderer so all in-memory state resets cleanly.
+        const win = windowSvc.getWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.reloadIgnoringCache();
+        }
       },
     });
   }

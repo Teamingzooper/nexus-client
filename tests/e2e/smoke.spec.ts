@@ -35,7 +35,7 @@ test('new-group button adds a group and puts it into rename mode', async ({ main
 test('settings modules tab lists bundled modules with + Add buttons', async ({
   mainWindow,
 }) => {
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   await expect(mainWindow.locator('.modal')).toBeVisible();
   const cards = mainWindow.locator('.module-settings li.module-card');
   await expect(cards).toHaveCount(3);
@@ -44,34 +44,40 @@ test('settings modules tab lists bundled modules with + Add buttons', async ({
   ).toBeVisible();
 });
 
-test('add instance creates a sidebar entry with the module name', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
-  await mainWindow.locator('.module-card:has-text("WhatsApp") button:has-text("+ Add")').click();
-  // The instance tag appears in settings.
-  await expect(mainWindow.locator('.instance-tag:has-text("WhatsApp")')).toBeVisible();
-  // And the sidebar shows an entry with the instance name.
-  await mainWindow.keyboard.press('Escape');
+test('+ Instance opens the picker, picks a module, and defaults the name', async ({
+  mainWindow,
+}) => {
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await expect(mainWindow.locator('.add-instance-modal')).toBeVisible();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  const input = mainWindow.locator('.add-instance-modal input');
+  await expect(input).toBeVisible();
+  await expect(input).toHaveValue(/WhatsApp/);
+  await input.fill('Work');
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
   await expect(
-    mainWindow.locator('.sidebar .module-item:has-text("WhatsApp")'),
+    mainWindow.locator('.sidebar .module-item:has-text("Work")'),
   ).toBeVisible();
 });
 
-test('adding two instances of the same module gives unique names', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
-  const addBtn = mainWindow.locator('.module-card:has-text("WhatsApp") button:has-text("+ Add")');
-  await addBtn.click();
-  await addBtn.click();
-  await expect(mainWindow.locator('.instance-tag:has-text("WhatsApp 2")')).toBeVisible();
-  await mainWindow.keyboard.press('Escape');
+test('adding two instances of the same module gives unique default names', async ({
+  mainWindow,
+}) => {
+  for (let i = 0; i < 2; i += 1) {
+    await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+    await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+    await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+    await expect(mainWindow.locator('.add-instance-modal')).toBeHidden();
+  }
   await expect(
     mainWindow.locator('.sidebar .module-item:has-text("WhatsApp 2")'),
   ).toBeVisible();
 });
 
 test('sidebar instance can be renamed via double-click', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
-  await mainWindow.locator('.module-card:has-text("Telegram") button:has-text("+ Add")').click();
-  await mainWindow.keyboard.press('Escape');
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("Telegram")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
 
   const item = mainWindow.locator('.sidebar .module-item:has-text("Telegram")');
   await item.dblclick();
@@ -86,10 +92,67 @@ test('sidebar instance can be renamed via double-click', async ({ mainWindow }) 
   ).toBeVisible();
 });
 
+test('deleting an instance requires confirmation', async ({ mainWindow }) => {
+  // Seed an instance.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  const item = mainWindow.locator('.sidebar .module-item:has-text("WhatsApp")');
+  await expect(item).toBeVisible();
+
+  // Click the remove × — a confirm dialog should appear.
+  await item.locator('.module-remove').click({ force: true });
+  const confirm = mainWindow.locator('.confirm-modal');
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toContainText('Delete WhatsApp');
+
+  // Cancel first — instance should still be there.
+  await mainWindow.locator('.confirm-cancel').click();
+  await expect(confirm).toBeHidden();
+  await expect(item).toBeVisible();
+
+  // Now confirm — instance is gone.
+  await item.locator('.module-remove').click({ force: true });
+  await mainWindow.locator('.confirm-ok.danger').click();
+  await expect(
+    mainWindow.locator('.sidebar .module-item:has-text("WhatsApp")'),
+  ).toHaveCount(0);
+});
+
+test('clear all data button lives in settings with a confirm guard', async ({
+  mainWindow,
+}) => {
+  await mainWindow.locator('.header-settings-btn').click();
+  await mainWindow.locator('.tab:has-text("About")').click();
+  const btn = mainWindow.locator('.danger-button:has-text("Clear all data")');
+  await expect(btn).toBeVisible();
+  await btn.click();
+  const confirm = mainWindow.locator('.confirm-modal.danger');
+  await expect(confirm).toBeVisible();
+  await expect(confirm).toContainText('Clear all Nexus data');
+  // Cancel — nothing should happen.
+  await mainWindow.locator('.confirm-cancel').click();
+  await expect(confirm).toBeHidden();
+});
+
+test('settings button is in the top app header, not the sidebar footer', async ({
+  mainWindow,
+}) => {
+  await expect(mainWindow.locator('.app-header .header-settings-btn')).toBeVisible();
+  await expect(mainWindow.locator('.sidebar .settings-btn')).toHaveCount(0);
+  // Sidebar footer has + Group and + Instance.
+  await expect(
+    mainWindow.locator('.sidebar-footer .sidebar-action:has-text("+ Instance")'),
+  ).toBeVisible();
+  await expect(
+    mainWindow.locator('.sidebar-footer .sidebar-action:has-text("+ Group")'),
+  ).toBeVisible();
+});
+
 test('settings modal opens above the content area (not hidden by embeds)', async ({
   mainWindow,
 }) => {
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   const modal = mainWindow.locator('.modal');
   await expect(modal).toBeVisible();
   const box = await modal.boundingBox();
@@ -99,7 +162,7 @@ test('settings modal opens above the content area (not hidden by embeds)', async
 });
 
 test('Escape closes the settings modal', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   await expect(mainWindow.locator('.modal')).toBeVisible();
   await mainWindow.keyboard.press('Escape');
   await expect(mainWindow.locator('.modal')).toBeHidden();
@@ -111,7 +174,7 @@ test('Cmd+, opens settings', async ({ mainWindow }) => {
 });
 
 test('theme switching updates CSS variables on :root', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   await mainWindow.locator('.tab:has-text("Themes")').click();
 
   const before = await mainWindow.evaluate(() =>
@@ -135,7 +198,7 @@ test('theme switching updates CSS variables on :root', async ({ mainWindow }) =>
 });
 
 test('color picker is always enabled and auto-drafts on change', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   await mainWindow.locator('.tab:has-text("Themes")').click();
 
   // On a built-in theme, no draft exists yet and Save/Cancel shouldn't be visible.
@@ -167,7 +230,7 @@ test('color picker is always enabled and auto-drafts on change', async ({ mainWi
 });
 
 test('theme pack export/import buttons are visible', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   await mainWindow.locator('.tab:has-text("Themes")').click();
   await expect(mainWindow.locator('button:has-text("Import pack")')).toBeVisible();
   await expect(mainWindow.locator('button:has-text("Export current")')).toBeVisible();
@@ -194,13 +257,13 @@ test('window resize reports new bounds without crashing', async ({ app, mainWind
 });
 
 test('reload modules button does not blow up the shell', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   await mainWindow.locator('button:has-text("Reload modules")').click();
   await expect(mainWindow.locator('.modal')).toBeVisible();
 });
 
 test('about tab shows keyboard shortcuts', async ({ mainWindow }) => {
-  await mainWindow.locator('.settings-btn').click();
+  await mainWindow.locator('.header-settings-btn').click();
   await mainWindow.locator('.tab:has-text("About")').click();
   await expect(mainWindow.locator('.shortcuts')).toBeVisible();
   await expect(mainWindow.locator('.shortcuts kbd').first()).toBeVisible();

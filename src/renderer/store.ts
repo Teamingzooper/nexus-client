@@ -8,6 +8,20 @@ import type {
 } from '../shared/types';
 import { defaultLayout } from '../shared/sidebarLayout';
 
+export interface ConfirmOptions {
+  title: string;
+  message: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  danger?: boolean;
+}
+
+interface ConfirmState extends ConfirmOptions {
+  open: true;
+  onConfirm: () => void;
+  onCancel?: () => void;
+}
+
 interface NexusStore {
   modules: LoadedModule[];
   themes: Theme[];
@@ -16,6 +30,9 @@ interface NexusStore {
   ready: boolean;
   error: string | null;
   previewTheme: Theme | null;
+  confirm: ConfirmState | null;
+  addInstanceOpen: boolean;
+  settingsOpen: boolean;
 
   init(): Promise<void>;
   activateInstance(instanceId: string): Promise<void>;
@@ -34,6 +51,20 @@ interface NexusStore {
   importThemePack(): Promise<{ canceled: boolean; added?: Theme[] }>;
   setPreviewTheme(theme: Theme | null): void;
   updateLayout(layout: SidebarLayout): Promise<void>;
+  clearAllData(): Promise<void>;
+
+  // Confirm dialog
+  showConfirm(opts: ConfirmOptions): Promise<boolean>;
+  closeConfirm(): void;
+
+  // Add-instance dialog
+  openAddInstance(): void;
+  closeAddInstance(): void;
+
+  // Settings modal
+  openSettings(): void;
+  closeSettings(): void;
+  toggleSettings(): void;
 }
 
 const DEFAULT_STATE: AppState = {
@@ -55,6 +86,9 @@ export const useNexus = create<NexusStore>((set, get) => ({
   ready: false,
   error: null,
   previewTheme: null,
+  confirm: null,
+  addInstanceOpen: false,
+  settingsOpen: false,
 
   async init() {
     try {
@@ -157,5 +191,63 @@ export const useNexus = create<NexusStore>((set, get) => ({
       set({ state });
       throw err;
     }
+  },
+
+  async clearAllData() {
+    await window.nexus.clearAllData();
+    // Main process reloads the renderer after wiping; still reset in-memory
+    // copies defensively in case the reload is slow.
+    set({
+      modules: [],
+      themes: [],
+      state: DEFAULT_STATE,
+      unread: {},
+      previewTheme: null,
+    });
+  },
+
+  showConfirm(opts) {
+    return new Promise<boolean>((resolve) => {
+      set({
+        confirm: {
+          open: true,
+          ...opts,
+          onConfirm: () => {
+            set({ confirm: null });
+            resolve(true);
+          },
+          onCancel: () => {
+            set({ confirm: null });
+            resolve(false);
+          },
+        },
+      });
+    });
+  },
+
+  closeConfirm() {
+    const c = get().confirm;
+    if (c?.onCancel) c.onCancel();
+    else set({ confirm: null });
+  },
+
+  openAddInstance() {
+    set({ addInstanceOpen: true });
+  },
+
+  closeAddInstance() {
+    set({ addInstanceOpen: false });
+  },
+
+  openSettings() {
+    set({ settingsOpen: true });
+  },
+
+  closeSettings() {
+    set({ settingsOpen: false });
+  },
+
+  toggleSettings() {
+    set((s) => ({ settingsOpen: !s.settingsOpen }));
   },
 }));

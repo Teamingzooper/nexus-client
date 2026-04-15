@@ -37,6 +37,7 @@ declare global {
       setContentBounds(bounds: Bounds): Promise<void>;
       setViewsSuspended(suspended: boolean): Promise<void>;
       updateSidebarLayout(layout: SidebarLayout): Promise<SidebarLayout>;
+      clearAllData(): Promise<void>;
 
       onUnread(cb: (update: UnreadUpdate) => void): () => void;
       getAllUnread(): Promise<Record<string, number>>;

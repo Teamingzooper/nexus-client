@@ -57,6 +57,7 @@ const api = {
     invoke(IPC.LAYOUT_SUSPEND, suspended),
   updateSidebarLayout: (layout: SidebarLayout): Promise<SidebarLayout> =>
     invoke(IPC.SIDEBAR_UPDATE_LAYOUT, layout),
+  clearAllData: (): Promise<void> => invoke(IPC.APP_CLEAR_ALL_DATA),
 
   onUnread: (cb: (update: UnreadUpdate) => void): (() => void) => {
     const listener = (_: unknown, update: UnreadUpdate) => cb(update);

@@ -193,4 +193,14 @@ export class SettingsService implements Service {
     this._state = { ...this._state, sidebarLayout: reconciled };
     this.queueWrite();
   }
+
+  /** Reset settings to defaults and delete the persisted state file. */
+  async clearAll(): Promise<void> {
+    this._state = { ...DEFAULT_STATE };
+    try {
+      await fs.rm(this.file, { force: true });
+    } catch (err) {
+      this.logger.warn('could not remove state file', err);
+    }
+  }
 }

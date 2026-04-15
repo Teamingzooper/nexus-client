@@ -15,6 +15,35 @@ export function SettingsPanel({ onClose }: Props) {
   const addInstance = useNexus((s) => s.addInstance);
   const removeInstance = useNexus((s) => s.removeInstance);
   const reload = useNexus((s) => s.reloadModules);
+  const showConfirm = useNexus((s) => s.showConfirm);
+  const clearAllData = useNexus((s) => s.clearAllData);
+
+  const confirmRemove = async (instance: { id: string; name: string }) => {
+    const ok = await showConfirm({
+      title: `Delete ${instance.name}?`,
+      message:
+        'All session data for this instance (cookies, login state, local storage) will be permanently erased. This cannot be undone.',
+      confirmLabel: 'Delete and wipe data',
+      danger: true,
+    });
+    if (ok) removeInstance(instance.id).catch((err) => console.error('remove failed', err));
+  };
+
+  const confirmClearAll = async () => {
+    const ok = await showConfirm({
+      title: 'Clear all Nexus data?',
+      message:
+        'This will delete every instance (and all its session data), every custom theme, your sidebar layout, and any saved preferences. The app will reload with factory defaults. This cannot be undone.',
+      confirmLabel: 'Clear everything',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await clearAllData();
+    } catch (err) {
+      console.error('clearAllData failed', err);
+    }
+  };
 
   useEffect(() => {
     window.nexus.setViewsSuspended(true).catch(() => {});
@@ -106,7 +135,7 @@ export function SettingsPanel({ onClose }: Props) {
                                   {i.name}
                                   <button
                                     className="instance-tag-remove"
-                                    onClick={() => removeInstance(i.id)}
+                                    onClick={() => confirmRemove(i)}
                                     aria-label={`Remove ${i.name}`}
                                   >
                                     ×
@@ -162,6 +191,18 @@ export function SettingsPanel({ onClose }: Props) {
                 </dt>
                 <dd>Close settings</dd>
               </dl>
+
+              <div className="danger-zone">
+                <h3>Danger zone</h3>
+                <p>
+                  Wipe every instance (and all of their session data), every custom theme,
+                  your sidebar layout, and any saved preferences. The app will reload with
+                  factory defaults.
+                </p>
+                <button className="danger-button" onClick={confirmClearAll}>
+                  Clear all data
+                </button>
+              </div>
             </div>
           )}
         </div>

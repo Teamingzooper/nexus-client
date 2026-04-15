@@ -196,4 +196,16 @@ describe('ThemeService', () => {
       expect(s2.get('custom-one')).toEqual(CUSTOM);
     });
   });
+
+  it('clearAll removes custom themes but keeps built-ins', async () => {
+    const s = new ThemeService();
+    await s.init(makeCtx(tmp));
+    await s.save(CUSTOM);
+    expect(s.get('custom-one')).toBeDefined();
+
+    await s.clearAll();
+    expect(s.get('custom-one')).toBeUndefined();
+    expect(s.get('nexus-dark')).toBeDefined();
+    expect(s.get('nexus-light')).toBeDefined();
+  });
 });
