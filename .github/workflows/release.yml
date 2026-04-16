@@ -80,7 +80,6 @@ jobs:
           files: |
             release/*.dmg
             release/*.zip
-            release/latest-mac.yml
 
       - name: Upload release assets (Windows)
         if: matrix.os == 'windows-latest'
@@ -93,4 +92,3 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/*.exe
-            release/latest.yml
