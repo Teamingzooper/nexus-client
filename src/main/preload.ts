@@ -38,6 +38,8 @@ const api = {
   activateInstance: (instanceId: string): Promise<void> =>
     invoke(IPC.INSTANCES_ACTIVATE, instanceId),
   reloadActiveInstance: (): Promise<void> => invoke(IPC.INSTANCES_RELOAD_ACTIVE),
+  setInstanceMuted: (instanceId: string, muted: boolean): Promise<void> =>
+    invoke(IPC.INSTANCES_SET_MUTED, { id: instanceId, muted }),
 
   listThemes: (): Promise<Theme[]> => invoke(IPC.THEMES_LIST),
   setTheme: (id: string): Promise<void> => invoke(IPC.THEMES_SET, id),
@@ -75,6 +77,10 @@ const api = {
     invoke(IPC.NOTIFY_SET_ENABLED, enabled),
   setNotificationSound: (enabled: boolean): Promise<void> =>
     invoke(IPC.NOTIFY_SET_SOUND, enabled),
+  setNotificationPrivacyMode: (enabled: boolean): Promise<void> =>
+    invoke(IPC.NOTIFY_SET_PRIVACY, enabled),
+  setDnd: (enabled: boolean, start: string, end: string): Promise<void> =>
+    invoke(IPC.NOTIFY_SET_DND, { enabled, start, end }),
   setLaunchAtLogin: (enabled: boolean): Promise<void> =>
     invoke(IPC.PREFS_SET_LAUNCH_AT_LOGIN, enabled),
   setSidebarCompact: (enabled: boolean): Promise<void> =>
@@ -107,6 +113,16 @@ const api = {
     newPassword: string | null,
   ): Promise<void> =>
     invoke(IPC.PROFILES_CHANGE_PASSWORD, { id, oldPassword, newPassword }),
+
+  // Updater
+  checkForUpdates: (): Promise<unknown> => invoke(IPC.UPDATER_CHECK),
+  installUpdate: (): Promise<void> => invoke(IPC.UPDATER_INSTALL),
+  getUpdaterStatus: (): Promise<unknown> => invoke(IPC.UPDATER_STATUS),
+  onUpdaterStatus: (cb: (status: unknown) => void): (() => void) => {
+    const listener = (_: unknown, payload: unknown) => cb(payload);
+    ipcRenderer.on('nexus:updater:status', listener);
+    return () => ipcRenderer.removeListener('nexus:updater:status', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('nexus', api);

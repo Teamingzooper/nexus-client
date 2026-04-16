@@ -26,6 +26,14 @@ export const moduleInstanceSchema = z.object({
     .string()
     .regex(/^persist:[a-z0-9][a-z0-9-_:]*$/, 'partition must start with persist: and be lowercase alphanumeric')
     .optional(),
+  /**
+   * When true, this instance is muted: NotificationService skips its
+   * native notifications entirely AND its unread count does not
+   * contribute to the dock badge total. The sidebar still shows the
+   * count badge so the user can see there's activity, just visually
+   * marked as muted.
+   */
+  muted: z.boolean().optional(),
 });
 
 export type ModuleInstance = z.infer<typeof moduleInstanceSchema>;

@@ -18,6 +18,10 @@ const DEFAULT_STATE: AppState = {
   activeProfileId: null,
   notificationsEnabled: true,
   notificationSound: true,
+  notificationPrivacyMode: false,
+  dndEnabled: false,
+  dndStart: '22:00',
+  dndEnd: '08:00',
   launchAtLogin: false,
   sidebarCompact: false,
   windowState: { width: 1280, height: 820 },
@@ -105,6 +109,22 @@ export class SettingsService implements Service {
   setNotificationSound(enabled: boolean): void {
     if (this._state.notificationSound === enabled) return;
     this._state = { ...this._state, notificationSound: enabled };
+    this.queueWrite();
+  }
+
+  setNotificationPrivacyMode(enabled: boolean): void {
+    if (this._state.notificationPrivacyMode === enabled) return;
+    this._state = { ...this._state, notificationPrivacyMode: enabled };
+    this.queueWrite();
+  }
+
+  setDnd(enabled: boolean, start: string, end: string): void {
+    this._state = {
+      ...this._state,
+      dndEnabled: enabled,
+      dndStart: start,
+      dndEnd: end,
+    };
     this.queueWrite();
   }
 

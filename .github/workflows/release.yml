@@ -57,6 +57,17 @@ jobs:
       # different suffix (*.dmg.blockmap, *.zip.blockmap, *.exe.blockmap) and
       # are not matched by these globs, so they stay on the runner.
       # Source code tarballs are auto-attached by GitHub Releases.
+      # Generate latest-mac.yml / latest.yml so electron-updater can find
+      # this release. We do it ourselves (vs. --publish always) so we have
+      # exact control over which files end up on the release page — no
+      # blockmaps, no extra noise.
+      - name: Generate updater manifest (macOS)
+        if: matrix.os == 'macos-latest'
+        run: node scripts/build-updater-yml.js mac
+      - name: Generate updater manifest (Windows)
+        if: matrix.os == 'windows-latest'
+        run: node scripts/build-updater-yml.js win
+
       - name: Upload release assets (macOS)
         if: matrix.os == 'macos-latest'
         uses: softprops/action-gh-release@v2
@@ -69,6 +80,7 @@ jobs:
           files: |
             release/*.dmg
             release/*.zip
+            release/latest-mac.yml
 
       - name: Upload release assets (Windows)
         if: matrix.os == 'windows-latest'
@@ -81,3 +93,4 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/*.exe
+            release/latest.yml

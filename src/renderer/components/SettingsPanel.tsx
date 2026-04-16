@@ -16,11 +16,17 @@ export function SettingsPanel({ onClose }: Props) {
   const instances = useNexus((s) => s.state.instances);
   const notificationsEnabled = useNexus((s) => s.state.notificationsEnabled ?? true);
   const notificationSound = useNexus((s) => s.state.notificationSound ?? true);
+  const notificationPrivacyMode = useNexus((s) => s.state.notificationPrivacyMode ?? false);
+  const dndEnabled = useNexus((s) => s.state.dndEnabled ?? false);
+  const dndStart = useNexus((s) => s.state.dndStart ?? '22:00');
+  const dndEnd = useNexus((s) => s.state.dndEnd ?? '08:00');
   const launchAtLogin = useNexus((s) => s.state.launchAtLogin ?? false);
   const sidebarCompact = useNexus((s) => s.state.sidebarCompact ?? false);
 
   const setNotificationsEnabled = useNexus((s) => s.setNotificationsEnabled);
   const setNotificationSound = useNexus((s) => s.setNotificationSound);
+  const setNotificationPrivacyMode = useNexus((s) => s.setNotificationPrivacyMode);
+  const setDnd = useNexus((s) => s.setDnd);
   const setLaunchAtLogin = useNexus((s) => s.setLaunchAtLogin);
   const setSidebarCompact = useNexus((s) => s.setSidebarCompact);
 
@@ -232,6 +238,59 @@ export function SettingsPanel({ onClose }: Props) {
                 </div>
               </label>
 
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={notificationPrivacyMode}
+                  disabled={!notificationsEnabled}
+                  onChange={(e) => setNotificationPrivacyMode(e.target.checked)}
+                />
+                <div>
+                  <div className="settings-toggle-title">Privacy mode</div>
+                  <div className="settings-toggle-desc">
+                    Replace message bodies with "New message" so screen-shares and
+                    shoulder-surfers don't see content. The instance name still appears
+                    in the title.
+                  </div>
+                </div>
+              </label>
+
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={dndEnabled}
+                  disabled={!notificationsEnabled}
+                  onChange={(e) => setDnd(e.target.checked, dndStart, dndEnd)}
+                />
+                <div>
+                  <div className="settings-toggle-title">Do Not Disturb hours</div>
+                  <div className="settings-toggle-desc">
+                    Suppress popups during a recurring time window. Sidebar badges still
+                    update; only the native notification is silenced.
+                  </div>
+                  <div className="settings-toggle-actions">
+                    <label className="dnd-time">
+                      From{' '}
+                      <input
+                        type="time"
+                        value={dndStart}
+                        disabled={!dndEnabled || !notificationsEnabled}
+                        onChange={(e) => setDnd(dndEnabled, e.target.value, dndEnd)}
+                      />
+                    </label>
+                    <label className="dnd-time">
+                      Until{' '}
+                      <input
+                        type="time"
+                        value={dndEnd}
+                        disabled={!dndEnabled || !notificationsEnabled}
+                        onChange={(e) => setDnd(dndEnabled, dndStart, e.target.value)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </label>
+
               <div className="settings-action-row">
                 <button onClick={runTestNotification}>Send test notification</button>
                 {notifFlash && <span className="toggle-flash">{notifFlash}</span>}
@@ -239,9 +298,10 @@ export function SettingsPanel({ onClose }: Props) {
 
               <p className="editor-hint">
                 Nexus intercepts <code>window.Notification</code> and service-worker
-                notifications in every embedded service and re-displays them natively with
-                the branded title. Counts shown next to each sidebar instance come from the
-                service's own title/badge signals, not from Nexus scraping.
+                notifications in every embedded service and re-displays them natively.
+                Counts shown next to each sidebar instance come from the service's own
+                title/badge signals. Right-click an instance in the sidebar (or use the
+                bell icon on hover) to mute it individually.
               </p>
             </div>
           )}

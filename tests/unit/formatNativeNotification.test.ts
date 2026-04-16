@@ -15,7 +15,10 @@ vi.mock('electron', () => ({
   },
 }));
 
-import { formatNativeNotification } from '../../src/main/services/notificationService';
+import {
+  formatNativeNotification,
+  isInDndWindow,
+} from '../../src/main/services/notificationService';
 
 describe('formatNativeNotification', () => {
   it('uses the instance name verbatim as the title (no [Nexus] prefix)', () => {
@@ -93,5 +96,51 @@ describe('formatNativeNotification', () => {
     });
     expect(typeof out.title).toBe('string');
     expect(typeof out.body).toBe('string');
+  });
+
+  it('redacts body to "New message" in privacy mode', () => {
+    const out = formatNativeNotification({
+      instanceName: 'Personal',
+      title: 'Mom',
+      body: 'Pick up some milk and call grandma',
+      privacyMode: true,
+    });
+    expect(out.title).toBe('Personal');
+    expect(out.body).toBe('New message');
+    expect(out.body).not.toContain('milk');
+    expect(out.body).not.toContain('grandma');
+  });
+});
+
+describe('isInDndWindow', () => {
+  function at(h: number, m = 0): Date {
+    const d = new Date(2026, 0, 1, h, m);
+    return d;
+  }
+
+  it('returns false when start equals end', () => {
+    expect(isInDndWindow(at(12), '12:00', '12:00')).toBe(false);
+  });
+
+  it('returns false on malformed time strings', () => {
+    expect(isInDndWindow(at(12), 'noon', 'midnight')).toBe(false);
+    expect(isInDndWindow(at(12), '25:00', '08:00')).toBe(false);
+  });
+
+  it('handles same-day windows (12:00 → 13:30)', () => {
+    expect(isInDndWindow(at(12, 30), '12:00', '13:30')).toBe(true);
+    expect(isInDndWindow(at(13, 30), '12:00', '13:30')).toBe(false); // end is exclusive
+    expect(isInDndWindow(at(11, 59), '12:00', '13:30')).toBe(false);
+    expect(isInDndWindow(at(14, 0), '12:00', '13:30')).toBe(false);
+  });
+
+  it('handles wraparound windows (22:00 → 08:00)', () => {
+    expect(isInDndWindow(at(22, 0), '22:00', '08:00')).toBe(true);
+    expect(isInDndWindow(at(23, 30), '22:00', '08:00')).toBe(true);
+    expect(isInDndWindow(at(2, 0), '22:00', '08:00')).toBe(true);
+    expect(isInDndWindow(at(7, 59), '22:00', '08:00')).toBe(true);
+    expect(isInDndWindow(at(8, 0), '22:00', '08:00')).toBe(false);
+    expect(isInDndWindow(at(12, 0), '22:00', '08:00')).toBe(false);
+    expect(isInDndWindow(at(21, 59), '22:00', '08:00')).toBe(false);
   });
 });

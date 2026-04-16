@@ -47,6 +47,18 @@ export const profileStateSchema = z.object({
   activeInstanceId: z.string().nullable(),
   instances: z.array(moduleInstanceSchema),
   sidebarLayout: sidebarLayoutSchema.optional(),
+  /**
+   * Per-profile theme override. When set, the active profile's themeId
+   * wins over SettingsService.themeId (which becomes the locked-state
+   * fallback). Lets a user have a dark "Work" profile and a midnight
+   * "Personal" profile, etc.
+   */
+  themeId: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z0-9][a-z0-9-_]*$/)
+    .optional(),
 });
 
 export type ProfileState = z.infer<typeof profileStateSchema>;

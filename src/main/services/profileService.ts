@@ -482,6 +482,29 @@ export class ProfileService implements Service {
     this.persistActive();
   }
 
+  setInstanceMuted(instanceId: string, muted: boolean): void {
+    this.requireUnlocked();
+    this.activeState = {
+      ...this.activeState,
+      instances: this.activeState.instances.map((i) =>
+        i.id === instanceId ? { ...i, muted } : i,
+      ),
+    };
+    this.persistActive();
+  }
+
+  /** Set the per-profile theme override. Pass null/undefined to clear. */
+  setProfileTheme(themeId: string | null): void {
+    this.requireUnlocked();
+    if (themeId === null || themeId === undefined) {
+      const { themeId: _drop, ...rest } = this.activeState;
+      this.activeState = rest;
+    } else {
+      this.activeState = { ...this.activeState, themeId };
+    }
+    this.persistActive();
+  }
+
   getInstance(instanceId: string): ModuleInstance | undefined {
     return this.activeState.instances.find((i) => i.id === instanceId);
   }

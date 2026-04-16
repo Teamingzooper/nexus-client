@@ -8,6 +8,8 @@ import { AppHeader } from './components/AppHeader';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { AddInstanceDialog } from './components/AddInstanceDialog';
 import { AccountManager } from './components/AccountManager';
+import { CommandPalette } from './components/CommandPalette';
+import { UpdateBanner } from './components/UpdateBanner';
 import { applyTheme } from './theme';
 import { useShortcuts } from './hooks/useShortcuts';
 
@@ -26,6 +28,7 @@ export function App() {
   const openSettings = useNexus((s) => s.openSettings);
   const closeSettings = useNexus((s) => s.closeSettings);
   const toggleSettings = useNexus((s) => s.toggleSettings);
+  const toggleCommandPalette = useNexus((s) => s.toggleCommandPalette);
   const overlayCount = useNexus((s) => s.overlayCount);
 
   useEffect(() => {
@@ -79,6 +82,12 @@ export function App() {
     },
     {
       mod: true,
+      key: 'k',
+      run: () => toggleCommandPalette(),
+      description: 'Open command palette',
+    },
+    {
+      mod: true,
       key: 'r',
       run: () => reloadActiveInstance(),
       description: 'Reload active instance',
@@ -114,6 +123,7 @@ export function App() {
     <ErrorBoundary>
       <div className="app">
         <AppHeader onOpenSettings={openSettings} />
+        <UpdateBanner />
         <div className="app-body">
           <Sidebar />
           <ContentArea hasActive={!!activeInstanceId} />
@@ -121,6 +131,7 @@ export function App() {
         {settingsOpen && <SettingsPanel onClose={closeSettings} />}
         <AddInstanceDialog />
         <AccountManager />
+        <CommandPalette />
         <ConfirmDialog />
       </div>
     </ErrorBoundary>

@@ -495,6 +495,63 @@ test('instances from one profile are isolated from another', async ({ mainWindow
   ).toBeVisible();
 });
 
+test('command palette opens on ⌘K and lists actions', async ({ mainWindow }) => {
+  await mainWindow.keyboard.press('Meta+k');
+  await expect(mainWindow.locator('.palette')).toBeVisible();
+  await expect(mainWindow.locator('.palette-input')).toBeFocused();
+  // Filter to "settings" — there's a built-in "Open settings" command.
+  await mainWindow.locator('.palette-input').fill('settings');
+  await expect(mainWindow.locator('.palette-item:has-text("Open settings")')).toBeVisible();
+  // Escape closes it.
+  await mainWindow.keyboard.press('Escape');
+  await expect(mainWindow.locator('.palette')).toHaveCount(0);
+});
+
+test('command palette Enter on an instance jumps to it', async ({ mainWindow }) => {
+  // Seed an instance.
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("Telegram")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await mainWindow.waitForTimeout(200);
+
+  await mainWindow.keyboard.press('Meta+k');
+  await mainWindow.locator('.palette-input').fill('Telegram');
+  await mainWindow.keyboard.press('Enter');
+  // Palette closes after the action runs.
+  await expect(mainWindow.locator('.palette')).toHaveCount(0);
+});
+
+test('sidebar mute button toggles 🔕 indicator', async ({ mainWindow }) => {
+  await mainWindow.locator('.sidebar-action', { hasText: '+ Instance' }).click();
+  await mainWindow.locator('.module-picker-item:has-text("WhatsApp")').click();
+  await mainWindow.locator('.confirm-ok:has-text("Create")').click();
+  await mainWindow.waitForTimeout(200);
+
+  const item = mainWindow.locator('.sidebar .module-item:has-text("WhatsApp")');
+  // No muted indicator yet.
+  await expect(item.locator('.muted-indicator')).toHaveCount(0);
+
+  // Click the mute button (force because it's hover-revealed).
+  await item.locator('.module-mute').click({ force: true });
+  await expect(item.locator('.muted-indicator')).toBeVisible();
+
+  // Click again to unmute.
+  await item.locator('.module-mute').click({ force: true });
+  await expect(item.locator('.muted-indicator')).toHaveCount(0);
+});
+
+test('Notifications tab has privacy + DND controls', async ({ mainWindow }) => {
+  await mainWindow.locator('.header-settings-btn').click();
+  await mainWindow.locator('.tab:has-text("Notifications")').click();
+  await expect(
+    mainWindow.locator('.settings-toggle:has-text("Privacy mode")'),
+  ).toBeVisible();
+  const dnd = mainWindow.locator('.settings-toggle:has-text("Do Not Disturb")');
+  await expect(dnd).toBeVisible();
+  // The two time inputs exist (initially disabled because DND is off).
+  await expect(dnd.locator('input[type="time"]')).toHaveCount(2);
+});
+
 test('password-protected profile prompts for password', async ({ mainWindow }) => {
   // Create a password-protected profile from Default.
   await mainWindow.locator('.app-header-right .header-btn', { hasText: 'Default' }).click();

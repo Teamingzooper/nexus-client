@@ -21,6 +21,7 @@ import type { ModuleRegistryService } from './moduleRegistryService';
 import type { ProfileService } from './profileService';
 import type { ViewService } from './viewService';
 import type { NotificationService } from './notificationService';
+import type { UpdaterService } from './updaterService';
 
 export class IpcService implements Service {
   readonly name = 'ipc';
@@ -38,6 +39,7 @@ export class IpcService implements Service {
     const views = ctx.container.get<ViewService>('views');
     const notifications = ctx.container.get<NotificationService>('notifications');
     const windowSvc = ctx.container.get<WindowService>('window');
+    const updater = ctx.container.get<UpdaterService>('updater');
 
     this.router.register(IPC.MODULES_LIST, { handler: () => registry.list() });
 
@@ -97,13 +99,30 @@ export class IpcService implements Service {
       handler: () => views.reloadActive(),
     });
 
+    this.router.register(IPC.INSTANCES_SET_MUTED, {
+      input: z.object({ id: instanceIdSchema, muted: z.boolean() }),
+      handler: ({ id, muted }) => {
+        if (profiles.isLocked()) throw new Error('no profile unlocked');
+        if (!profiles.getInstance(id)) throw new Error(`unknown instance: ${id}`);
+        profiles.setInstanceMuted(id, muted);
+        // The instance's contribution to the dock badge total just changed.
+        notifications.recomputeBadge();
+      },
+    });
+
     this.router.register(IPC.THEMES_LIST, { handler: () => themes.list() });
 
     this.router.register(IPC.THEMES_SET, {
       input: themeIdSchema,
       handler: (id) => {
         if (!themes.get(id)) throw new Error(`unknown theme: ${id}`);
-        settings.setTheme(id);
+        // When a profile is unlocked the theme is per-profile; the global
+        // settings.themeId stays as the locked-state fallback.
+        if (!profiles.isLocked()) {
+          profiles.setProfileTheme(id);
+        } else {
+          settings.setTheme(id);
+        }
         ctx.bus.emit('theme:changed', { themeId: id });
       },
     });
@@ -196,6 +215,24 @@ export class IpcService implements Service {
       input: z.boolean(),
       handler: (enabled) => {
         settings.setNotificationSound(enabled);
+      },
+    });
+
+    this.router.register(IPC.NOTIFY_SET_PRIVACY, {
+      input: z.boolean(),
+      handler: (enabled) => {
+        settings.setNotificationPrivacyMode(enabled);
+      },
+    });
+
+    this.router.register(IPC.NOTIFY_SET_DND, {
+      input: z.object({
+        enabled: z.boolean(),
+        start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+        end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      }),
+      handler: ({ enabled, start, end }) => {
+        settings.setDnd(enabled, start, end);
       },
     });
 
@@ -342,6 +379,20 @@ export class IpcService implements Service {
       }),
       handler: async ({ id, oldPassword, newPassword }) =>
         profiles.changePassword(id, oldPassword, newPassword),
+    });
+
+    this.router.register(IPC.UPDATER_CHECK, {
+      handler: async () => updater.checkForUpdates(),
+    });
+
+    this.router.register(IPC.UPDATER_INSTALL, {
+      handler: () => {
+        updater.quitAndInstall();
+      },
+    });
+
+    this.router.register(IPC.UPDATER_STATUS, {
+      handler: () => updater.status(),
     });
   }
 

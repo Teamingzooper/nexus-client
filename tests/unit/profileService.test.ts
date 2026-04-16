@@ -310,4 +310,57 @@ describe('ProfileService', () => {
       await s.dispose();
     });
   });
+
+  describe('per-instance mute', () => {
+    it('toggles the muted flag and persists it', async () => {
+      const s1 = new ProfileService();
+      await s1.init(makeCtx(tmp));
+      await s1.unlock('default');
+      s1.addInstance('whatsapp', 'WhatsApp');
+      s1.setInstanceMuted('whatsapp', true);
+      expect(s1.getInstance('whatsapp')?.muted).toBe(true);
+      await s1.dispose();
+
+      const s2 = new ProfileService();
+      await s2.init(makeCtx(tmp));
+      await s2.unlock('default');
+      expect(s2.getInstance('whatsapp')?.muted).toBe(true);
+      await s2.dispose();
+    });
+
+    it('throws when called while locked', async () => {
+      const s = new ProfileService();
+      await s.init(makeCtx(tmp));
+      expect(() => s.setInstanceMuted('whatsapp', true)).toThrow(/no profile unlocked/);
+      await s.dispose();
+    });
+  });
+
+  describe('per-profile theme', () => {
+    it('round-trips through encrypted profile state', async () => {
+      const s1 = new ProfileService();
+      await s1.init(makeCtx(tmp));
+      await s1.createProfile({ name: 'Vault', password: 'pw' });
+      await s1.unlock('vault', 'pw');
+      s1.setProfileTheme('nexus-light');
+      await s1.dispose();
+
+      const s2 = new ProfileService();
+      await s2.init(makeCtx(tmp));
+      await s2.unlock('vault', 'pw');
+      expect(s2.state.themeId).toBe('nexus-light');
+      await s2.dispose();
+    });
+
+    it('clears the theme override when set to null', async () => {
+      const s = new ProfileService();
+      await s.init(makeCtx(tmp));
+      await s.unlock('default');
+      s.setProfileTheme('nexus-midnight');
+      expect(s.state.themeId).toBe('nexus-midnight');
+      s.setProfileTheme(null);
+      expect(s.state.themeId).toBeUndefined();
+      await s.dispose();
+    });
+  });
 });

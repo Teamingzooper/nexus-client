@@ -74,7 +74,12 @@ class FakeProfileService {
   readonly name = 'profiles';
   state = {
     activeInstanceId: null as string | null,
-    instances: [] as Array<{ id: string; moduleId: string; name: string }>,
+    instances: [] as Array<{
+      id: string;
+      moduleId: string;
+      name: string;
+      muted?: boolean;
+    }>,
   };
   init() {}
   getInstance(id: string) {
@@ -83,8 +88,12 @@ class FakeProfileService {
   setActive(id: string | null) {
     this.state.activeInstanceId = id;
   }
-  addFakeInstance(id: string, name: string) {
-    this.state.instances.push({ id, moduleId: id, name });
+  addFakeInstance(id: string, name: string, opts: { muted?: boolean } = {}) {
+    this.state.instances.push({ id, moduleId: id, name, muted: opts.muted });
+  }
+  setMuted(id: string, muted: boolean) {
+    const i = this.state.instances.find((x) => x.id === id);
+    if (i) i.muted = muted;
   }
 }
 
@@ -234,9 +243,35 @@ describe('NotificationService', () => {
       expect(notifMock.lastOpts.body).toBe('John: Lunch?');
       // No "Nexus" branding in title or subtitle anymore.
       expect(notifMock.lastOpts.subtitle).toBeUndefined();
-      // Icon path is set so the notification shows the Nexus logo.
-      expect(typeof notifMock.lastOpts.icon).toBe('string');
-      expect(notifMock.lastOpts.icon).toMatch(/icon\.png$/);
+    });
+
+    it('omits icon on macOS (avoids second "content image"); sets it on Windows/Linux', async () => {
+      const originalPlatform = process.platform;
+      try {
+        Object.defineProperty(process, 'platform', { value: 'darwin' });
+        let ctx = await makeContainer();
+        ctx.profiles.addFakeInstance('whatsapp', 'Work');
+        ctx.bus.emit('notification:native', {
+          instanceId: 'whatsapp',
+          title: 'John',
+          body: 'Lunch?',
+        });
+        expect(notifMock.lastOpts.icon).toBeUndefined();
+
+        notifMock.lastOpts = null;
+        Object.defineProperty(process, 'platform', { value: 'win32' });
+        ctx = await makeContainer();
+        ctx.profiles.addFakeInstance('whatsapp', 'Work');
+        ctx.bus.emit('notification:native', {
+          instanceId: 'whatsapp',
+          title: 'John',
+          body: 'Lunch?',
+        });
+        expect(typeof notifMock.lastOpts.icon).toBe('string');
+        expect(notifMock.lastOpts.icon).toMatch(/icon\.png$/);
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      }
     });
 
     it('skips native notifications when the setting is disabled', async () => {
@@ -276,6 +311,75 @@ describe('NotificationService', () => {
       expect(win.win.focus).toHaveBeenCalled();
       expect(views.activate).toHaveBeenCalledWith('whatsapp');
       expect(profiles.state.activeInstanceId).toBe('whatsapp');
+    });
+  });
+
+  describe('mute / privacy / DND gates', () => {
+    it('skips native notification when the instance is muted', async () => {
+      const { bus, profiles } = await makeContainer();
+      profiles.addFakeInstance('whatsapp', 'Work', { muted: true });
+      bus.emit('notification:native', {
+        instanceId: 'whatsapp',
+        title: 'John',
+        body: 'Lunch?',
+      });
+      expect(notifMock.show).not.toHaveBeenCalled();
+    });
+
+    it('skips native notification when within DND window', async () => {
+      const { bus, settings, profiles } = await makeContainer();
+      profiles.addFakeInstance('whatsapp', 'Work');
+      // Set DND to a window that always contains "now": 00:00 → 23:59.
+      settings.state.dndEnabled = true;
+      settings.state.dndStart = '00:00';
+      settings.state.dndEnd = '23:59';
+      bus.emit('notification:native', {
+        instanceId: 'whatsapp',
+        title: 'John',
+        body: 'Lunch?',
+      });
+      expect(notifMock.show).not.toHaveBeenCalled();
+    });
+
+    it('redacts body when privacy mode is on', async () => {
+      const { bus, settings, profiles } = await makeContainer();
+      settings.state.notificationPrivacyMode = true;
+      profiles.addFakeInstance('whatsapp', 'Personal');
+      bus.emit('notification:native', {
+        instanceId: 'whatsapp',
+        title: 'Mom',
+        body: 'Pick up groceries',
+      });
+      expect(notifMock.show).toHaveBeenCalled();
+      expect(notifMock.lastOpts.title).toBe('Personal');
+      expect(notifMock.lastOpts.body).toBe('New message');
+      expect(notifMock.lastOpts.body).not.toContain('groceries');
+    });
+
+    it('muted instances do not contribute to the dock badge total', async () => {
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'darwin' });
+      try {
+        const { bus, profiles, notifications } = await makeContainer();
+        profiles.addFakeInstance('whatsapp', 'Work');
+        profiles.addFakeInstance('telegram', 'Personal');
+        bus.emit('notification:update', { moduleId: 'whatsapp', count: 12 });
+        bus.emit('notification:update', { moduleId: 'telegram', count: 1 });
+        // Total = 13.
+        expect(dockMock.setBadge.mock.calls.at(-1)?.[0]).toBe('13');
+
+        // Mute WhatsApp and recompute — the 12 should drop out of the total.
+        profiles.setMuted('whatsapp', true);
+        notifications.recomputeBadge();
+        expect(dockMock.setBadge.mock.calls.at(-1)?.[0]).toBe('1');
+
+        // Unmute it again — 13 returns.
+        profiles.setMuted('whatsapp', false);
+        notifications.recomputeBadge();
+        expect(dockMock.setBadge.mock.calls.at(-1)?.[0]).toBe('13');
+      } finally {
+        Object.defineProperty(process, 'platform', { value: originalPlatform });
+      }
     });
   });
 

@@ -16,9 +16,9 @@ import type { ViewService } from './viewService';
  *   format({ instanceName: 'Personal', title: 'Peter Hollon', body: 'Hi' })
  *     => { title: 'Personal', body: 'Peter Hollon: Hi' }
  *
- * The title is just the instance name — the OS already labels the
- * notification as "Nexus" via the bundle id, so prefixing the title
- * with "[Nexus]" was redundant and visually noisy.
+ * In privacy mode the body is replaced with the literal "New message"
+ * so screen-shares / shoulder-surfers don't see content. The title
+ * (instance name only) is harmless to leak.
  *
  * Empty source title leaves the body unchanged (no leading colon).
  */
@@ -26,7 +26,11 @@ export function formatNativeNotification(input: {
   instanceName: string;
   title: string;
   body: string;
+  privacyMode?: boolean;
 }): { title: string; body: string } {
+  if (input.privacyMode) {
+    return { title: input.instanceName, body: 'New message' };
+  }
   const t = (input.title ?? '').trim();
   const b = (input.body ?? '').trim();
   const composedBody = t && b ? `${t}: ${b}` : t || b || '';
@@ -37,12 +41,40 @@ export function formatNativeNotification(input: {
 }
 
 /**
- * Resolve the path to the bundled Nexus icon for use as a Notification
- * icon. In a packaged build, electron-builder copies build/icon.png to
- * Contents/Resources/icon.png via extraResources. In dev, we resolve
- * relative to the repo root.
+ * Returns true if `now` is inside a "DND window" defined by HH:MM
+ * start/end in the user's local time. Handles wraparound (22:00 → 08:00
+ * means "from 10pm tonight until 8am tomorrow"). Pure, easy to test.
  */
-function resolveIconPath(): string {
+export function isInDndWindow(now: Date, startHHMM: string, endHHMM: string): boolean {
+  const minutesNow = now.getHours() * 60 + now.getMinutes();
+  const start = parseHHMM(startHHMM);
+  const end = parseHHMM(endHHMM);
+  if (start === null || end === null) return false;
+  if (start === end) return false;
+  if (start < end) {
+    // Same-day window, e.g. 12:00 → 13:30.
+    return minutesNow >= start && minutesNow < end;
+  }
+  // Wraparound, e.g. 22:00 → 08:00.
+  return minutesNow >= start || minutesNow < end;
+}
+
+function parseHHMM(s: string): number | null {
+  const m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(s);
+  if (!m) return null;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+/**
+ * Resolve the icon to pass to a native Notification. On macOS we return
+ * undefined: the OS already shows the .app bundle icon on the left, and
+ * passing `icon:` adds a *second* image (the "content image") on the right.
+ * On Windows/Linux the constructor `icon:` is how the icon gets set, so we
+ * point at the bundled icon.png (copied to resourcesPath via extraResources
+ * in packaged builds; resolved against the repo root in dev).
+ */
+function resolveIconPath(): string | undefined {
+  if (process.platform === 'darwin') return undefined;
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'icon.png');
   }
@@ -104,6 +136,15 @@ export class NotificationService implements Service {
   }
 
   /**
+   * Recompute the dock badge from the current counts + mute state.
+   * Used after toggling an instance's muted flag — its contribution
+   * to the total just changed.
+   */
+  recomputeBadge(): void {
+    this.updateBadge();
+  }
+
+  /**
    * Drop every tracked unread count and zero out the dock badge. Called on
    * profile switch/lock so counts from instances that are no longer visible
    * (different profile) don't inflate the dock total. The renderer also
@@ -129,8 +170,23 @@ export class NotificationService implements Service {
     }
   }
 
+  private isInDnd(): boolean {
+    const s = this.settings.state;
+    if (!s.dndEnabled) return false;
+    if (!s.dndStart || !s.dndEnd) return false;
+    return isInDndWindow(new Date(), s.dndStart, s.dndEnd);
+  }
+
   private updateBadge(): void {
-    const total = [...this.counts.values()].reduce((s, n) => s + n, 0);
+    // Sum only the unread counts of UNMUTED instances. Muted instances still
+    // show their per-instance badge in the sidebar (so the user sees activity)
+    // but don't contribute to the global dock-level total.
+    let total = 0;
+    for (const [id, n] of this.counts) {
+      const instance = this.profiles.getInstance(id);
+      if (instance?.muted) continue;
+      total += n;
+    }
     if (process.platform === 'darwin') {
       app.dock?.setBadge(total > 0 ? String(total) : '');
     }
@@ -210,11 +266,20 @@ export class NotificationService implements Service {
       this.logger.warn(`showNative: unknown instance ${instanceId}`);
       return;
     }
+    if (instance.muted) {
+      this.logger.debug(`instance ${instanceId} is muted — suppressing notification`);
+      return;
+    }
+    if (this.isInDnd()) {
+      this.logger.debug('within DND window — suppressing notification');
+      return;
+    }
 
     const { title: nTitle, body: nBody } = formatNativeNotification({
       instanceName: instance.name,
       title,
       body,
+      privacyMode: this.settings.state.notificationPrivacyMode === true,
     });
 
     try {

@@ -48,6 +48,7 @@ interface NexusStore {
   confirm: ConfirmState | null;
   addInstanceOpen: boolean;
   settingsOpen: boolean;
+  commandPaletteOpen: boolean;
   overlayCount: number;
 
   // Profiles
@@ -67,6 +68,9 @@ interface NexusStore {
   deleteTheme(id: string): Promise<void>;
   setNotificationsEnabled(enabled: boolean): Promise<void>;
   setNotificationSound(enabled: boolean): Promise<void>;
+  setNotificationPrivacyMode(enabled: boolean): Promise<void>;
+  setDnd(enabled: boolean, start: string, end: string): Promise<void>;
+  setInstanceMuted(instanceId: string, muted: boolean): Promise<void>;
   setLaunchAtLogin(enabled: boolean): Promise<void>;
   setSidebarCompact(enabled: boolean): Promise<void>;
   testNotification(): Promise<boolean>;
@@ -107,6 +111,11 @@ interface NexusStore {
   closeSettings(): void;
   toggleSettings(): void;
 
+  // Command palette
+  openCommandPalette(): void;
+  closeCommandPalette(): void;
+  toggleCommandPalette(): void;
+
   // Overlay registry (ref-counted). Any component that needs to cover the
   // embedded WebContentsView calls pushOverlay() on mount and popOverlay()
   // on unmount; a single App-level effect suspends views while count > 0.
@@ -125,6 +134,10 @@ const DEFAULT_APP_STATE: AppState = {
   activeProfileId: null,
   notificationsEnabled: true,
   notificationSound: true,
+  notificationPrivacyMode: false,
+  dndEnabled: false,
+  dndStart: '22:00',
+  dndEnd: '08:00',
   launchAtLogin: false,
   sidebarCompact: false,
 };
@@ -158,6 +171,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
   confirm: null,
   addInstanceOpen: false,
   settingsOpen: false,
+  commandPaletteOpen: false,
   overlayCount: 0,
   profiles: [],
   currentProfile: null,
@@ -260,6 +274,30 @@ export const useNexus = create<NexusStore>((set, get) => ({
   async setNotificationSound(enabled) {
     await window.nexus.setNotificationSound(enabled);
     set((s) => ({ state: { ...s.state, notificationSound: enabled } }));
+  },
+
+  async setNotificationPrivacyMode(enabled) {
+    await window.nexus.setNotificationPrivacyMode(enabled);
+    set((s) => ({ state: { ...s.state, notificationPrivacyMode: enabled } }));
+  },
+
+  async setDnd(enabled, start, end) {
+    await window.nexus.setDnd(enabled, start, end);
+    set((s) => ({
+      state: { ...s.state, dndEnabled: enabled, dndStart: start, dndEnd: end },
+    }));
+  },
+
+  async setInstanceMuted(instanceId, muted) {
+    await window.nexus.setInstanceMuted(instanceId, muted);
+    set((s) => ({
+      state: {
+        ...s.state,
+        instances: s.state.instances.map((i) =>
+          i.id === instanceId ? { ...i, muted } : i,
+        ),
+      },
+    }));
   },
 
   async setLaunchAtLogin(enabled) {
@@ -447,6 +485,18 @@ export const useNexus = create<NexusStore>((set, get) => ({
 
   toggleSettings() {
     set((s) => ({ settingsOpen: !s.settingsOpen }));
+  },
+
+  openCommandPalette() {
+    set({ commandPaletteOpen: true });
+  },
+
+  closeCommandPalette() {
+    set({ commandPaletteOpen: false });
+  },
+
+  toggleCommandPalette() {
+    set((s) => ({ commandPaletteOpen: !s.commandPaletteOpen }));
   },
 
   pushOverlay() {

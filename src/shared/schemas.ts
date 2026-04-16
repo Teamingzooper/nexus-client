@@ -110,11 +110,18 @@ export const themeIdSchema = moduleIdSchema;
  * Only things that apply to the whole app regardless of which profile
  * is active belong here.
  */
+// Time-of-day stored as "HH:MM" 24-hour. Used for DND start/end.
+const timeOfDay = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'expected HH:MM 24-hour');
+
 export const appStateSchema = z.object({
   themeId: themeIdSchema,
   activeProfileId: profileIdSchema.nullable(),
   notificationsEnabled: z.boolean().optional(),
   notificationSound: z.boolean().optional(),
+  notificationPrivacyMode: z.boolean().optional(),
+  dndEnabled: z.boolean().optional(),
+  dndStart: timeOfDay.optional(),
+  dndEnd: timeOfDay.optional(),
   launchAtLogin: z.boolean().optional(),
   sidebarCompact: z.boolean().optional(),
   windowState: z

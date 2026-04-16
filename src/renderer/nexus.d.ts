@@ -9,6 +9,15 @@ import type {
   ProfileSummary,
 } from '../shared/types';
 
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string; releaseNotes?: string | null }
+  | { state: 'not-available'; version: string }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string };
+
 declare global {
   interface Window {
     nexus: {
@@ -21,6 +30,7 @@ declare global {
       renameInstance(instanceId: string, name: string): Promise<void>;
       activateInstance(instanceId: string): Promise<void>;
       reloadActiveInstance(): Promise<void>;
+      setInstanceMuted(instanceId: string, muted: boolean): Promise<void>;
 
       listThemes(): Promise<Theme[]>;
       setTheme(id: string): Promise<void>;
@@ -45,6 +55,8 @@ declare global {
       getAllUnread(): Promise<Record<string, number>>;
       setNotificationsEnabled(enabled: boolean): Promise<void>;
       setNotificationSound(enabled: boolean): Promise<void>;
+      setNotificationPrivacyMode(enabled: boolean): Promise<void>;
+      setDnd(enabled: boolean, start: string, end: string): Promise<void>;
       setLaunchAtLogin(enabled: boolean): Promise<void>;
       setSidebarCompact(enabled: boolean): Promise<void>;
       testNotification(instanceId?: string | null): Promise<boolean>;
@@ -69,6 +81,11 @@ declare global {
         oldPassword: string | null,
         newPassword: string | null,
       ): Promise<void>;
+
+      checkForUpdates(): Promise<UpdateStatus>;
+      installUpdate(): Promise<void>;
+      getUpdaterStatus(): Promise<UpdateStatus>;
+      onUpdaterStatus(cb: (status: UpdateStatus) => void): () => void;
     };
   }
 }
