@@ -68,12 +68,21 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: node scripts/build-updater-yml.js win
 
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          BODY=$(node scripts/extract-changelog.js "${{ github.ref_name }}")
+          echo "body<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
+          echo "$BODY" >> "$GITHUB_OUTPUT"
+          echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
+
       - name: Upload release assets (macOS)
         if: matrix.os == 'macos-latest'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.body }}
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
@@ -87,6 +96,7 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.body }}
           draft: false
           prerelease: false
           fail_on_unmatched_files: true
