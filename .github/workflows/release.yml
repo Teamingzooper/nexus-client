@@ -27,12 +27,15 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # Skip matrix entries that don't match the selected platforms input.
-    if: >-
-      github.event_name != 'workflow_dispatch'
-      || inputs.platforms == 'all'
-      || (inputs.platforms == 'mac' && matrix.os == 'macos-latest')
-      || (inputs.platforms == 'win' && matrix.os == 'windows-latest')
+    # DO_MAC / DO_WIN gate the platform-specific steps (installer build,
+    # updater manifest, upload). matrix.os isn't available in job-level
+    # if conditions, so we can't skip the whole job — the early steps
+    # (checkout, npm ci, typecheck, unit tests, bundle build) run on both
+    # runners regardless, but no installers are produced or uploaded for
+    # a deselected platform.
+    env:
+      DO_MAC: ${{ github.event_name != 'workflow_dispatch' || inputs.platforms == 'all' || inputs.platforms == 'mac' }}
+      DO_WIN: ${{ github.event_name != 'workflow_dispatch' || inputs.platforms == 'all' || inputs.platforms == 'win' }}
     strategy:
       fail-fast: false
       matrix:
@@ -67,13 +70,13 @@ jobs:
       # latest.yml / latest-mac.yml (those only exist when publish is
       # configured). The upload step below grabs only user-facing installers.
       - name: Build installers (macOS — arm64 + x64)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && env.DO_MAC == 'true'
         run: npx electron-builder --mac --publish never
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Build installer (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && env.DO_WIN == 'true'
         run: npx electron-builder --win --publish never
 
       # Upload only DMG / mac ZIP / Windows EXE. The .blockmap files have a
@@ -85,10 +88,10 @@ jobs:
       # exact control over which files end up on the release page — no
       # blockmaps, no extra noise.
       - name: Generate updater manifest (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && env.DO_MAC == 'true'
         run: node scripts/build-updater-yml.js mac
       - name: Generate updater manifest (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && env.DO_WIN == 'true'
         run: node scripts/build-updater-yml.js win
 
       - name: Extract changelog for this version
@@ -103,7 +106,7 @@ jobs:
           echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
 
       - name: Upload release assets (macOS)
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && env.DO_MAC == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
@@ -117,7 +120,7 @@ jobs:
             release/*.zip
 
       - name: Upload release assets (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && env.DO_WIN == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
