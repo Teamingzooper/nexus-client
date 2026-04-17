@@ -4,6 +4,21 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and upload to (e.g. v1.2.0)"
+        required: true
+        type: string
+      platforms:
+        description: "Which platforms to (re)build and upload"
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - mac
+          - win
 
 permissions:
   contents: write
@@ -12,6 +27,12 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    # Skip matrix entries that don't match the selected platforms input.
+    if: >-
+      github.event_name != 'workflow_dispatch'
+      || inputs.platforms == 'all'
+      || (inputs.platforms == 'mac' && matrix.os == 'macos-latest')
+      || (inputs.platforms == 'win' && matrix.os == 'windows-latest')
     strategy:
       fail-fast: false
       matrix:
@@ -20,6 +41,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -70,8 +93,11 @@ jobs:
 
       - name: Extract changelog for this version
         id: changelog
+        # Force bash on all runners — Windows defaults to PowerShell, which
+        # chokes on BODY=$(...) and heredoc syntax.
+        shell: bash
         run: |
-          BODY=$(node scripts/extract-changelog.js "${{ github.ref_name }}")
+          BODY=$(node scripts/extract-changelog.js "${{ inputs.tag || github.ref_name }}")
           echo "body<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
           echo "$BODY" >> "$GITHUB_OUTPUT"
           echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
@@ -80,8 +106,8 @@ jobs:
         if: matrix.os == 'macos-latest'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
           body: ${{ steps.changelog.outputs.body }}
           draft: false
           prerelease: false
@@ -94,8 +120,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
           body: ${{ steps.changelog.outputs.body }}
           draft: false
           prerelease: false
