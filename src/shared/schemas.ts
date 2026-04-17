@@ -37,6 +37,15 @@ export const manifestSchema = z.object({
   partition: z.string().regex(/^persist:[a-z0-9-_]+$/).optional(),
   userAgent: z.string().max(512).optional(),
   permissions: z.array(z.string()).max(16).optional(),
+  allowedOrigins: z
+    .array(
+      z
+        .string()
+        .url()
+        .refine((u) => u.startsWith('https://'), 'allowed origin must be https'),
+    )
+    .max(16)
+    .optional(),
   inject: z
     .object({
       css: z

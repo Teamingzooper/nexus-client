@@ -228,7 +228,8 @@ export class ViewService implements Service {
       view.webContents.setUserAgent(manifest.userAgent);
     }
 
-    installNavigationGuard(view.webContents, origin, this.logger);
+    const extraOrigins = (manifest.allowedOrigins ?? []).map((u) => new URL(u).origin);
+    installNavigationGuard(view.webContents, origin, this.logger, extraOrigins);
 
     view.webContents.on('dom-ready', async () => {
       // 1. Inject the Nexus main-world Notification shim. Idempotent — safe to

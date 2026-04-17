@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 — 2026-04-17
+
+### Features
+- **Microsoft Teams module**: bundled Teams web client with OAuth-aware navigation (login.microsoftonline.com, login.live.com, teams.live.com, etc.)
+- **`allowedOrigins` manifest field**: modules can now whitelist additional origins so auth/redirect flows complete in-place instead of bouncing to the system browser
+- **Sidebar context menu**: right-click an instance for Rename, Reload, Mute/Unmute, and Delete — closes on click-away, Escape, or another right-click
+
+### Improvements
+- Navigation guard honors manifest `allowedOrigins` for both top-frame navigations and window-open requests
+- Teams launches against the modern `/v2/` SPA with an Edge UA so Microsoft treats it as a first-class browser (no "download the app" nag)
+
 ## 1.1.0 — 2026-04-16
 
 ### Features

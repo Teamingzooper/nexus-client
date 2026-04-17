@@ -1,0 +1,24 @@
+{
+  "id": "teams",
+  "name": "Teams",
+  "version": "1.0.1",
+  "author": "nexus",
+  "description": "Microsoft Teams embedded in Nexus.",
+  "url": "https://teams.microsoft.com/v2/",
+  "icon": "icon.svg",
+  "partition": "persist:teams",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0",
+  "allowedOrigins": [
+    "https://login.microsoftonline.com",
+    "https://login.live.com",
+    "https://login.microsoft.com",
+    "https://account.microsoft.com",
+    "https://teams.live.com",
+    "https://teams.cloud.microsoft",
+    "https://aka.ms"
+  ],
+  "notifications": {
+    "kind": "title",
+    "pattern": "\\((\\d+)\\)"
+  }
+}

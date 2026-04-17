@@ -74,11 +74,13 @@ export function installNavigationGuard(
   webContents: Electron.WebContents,
   allowedOrigin: string,
   logger: Logger,
+  extraOrigins: readonly string[] = [],
 ): void {
+  const allowed = new Set<string>([allowedOrigin, ...extraOrigins]);
   webContents.on('will-navigate', (event, target) => {
     try {
       const targetOrigin = new URL(target).origin;
-      if (targetOrigin !== allowedOrigin) {
+      if (!allowed.has(targetOrigin)) {
         event.preventDefault();
         logger.debug(`redirecting off-origin nav ${target} -> browser`);
         shell.openExternal(target).catch(() => {});
@@ -89,6 +91,14 @@ export function installNavigationGuard(
   });
 
   webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const targetOrigin = new URL(url).origin;
+      if (allowed.has(targetOrigin)) {
+        return { action: 'allow' };
+      }
+    } catch {
+      // fall through to deny + openExternal
+    }
     shell.openExternal(url).catch(() => {});
     return { action: 'deny' };
   });

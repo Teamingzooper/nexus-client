@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNexus } from '../store';
 import type {
   DropTarget,
@@ -36,11 +36,35 @@ export function Sidebar() {
   const openAddInstance = useNexus((s) => s.openAddInstance);
   const showConfirm = useNexus((s) => s.showConfirm);
   const setInstanceMuted = useNexus((s) => s.setInstanceMuted);
+  const reloadActiveInstance = useNexus((s) => s.reloadActiveInstance);
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingInstanceId, setEditingInstanceId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    instanceId: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    window.addEventListener('click', close);
+    window.addEventListener('contextmenu', close);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('blur', close);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('contextmenu', close);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', close);
+    };
+  }, [contextMenu]);
 
   const instancesById = useMemo(() => {
     const map = new Map<string, ModuleInstance>();
@@ -286,6 +310,12 @@ export function Sidebar() {
                           onClick={() => {
                             if (!isRenaming) activate(instance.id);
                           }}
+                          onContextMenu={(e) => {
+                            if (isRenaming) return;
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setContextMenu({ instanceId: instance.id, x: e.clientX, y: e.clientY });
+                          }}
                           onDoubleClick={(e) => {
                             e.preventDefault();
                             setEditingInstanceId(instance.id);
@@ -408,6 +438,63 @@ export function Sidebar() {
           + Group
         </button>
       </div>
+
+      {contextMenu &&
+        (() => {
+          const instance = instancesById.get(contextMenu.instanceId);
+          if (!instance) return null;
+          const MENU_W = 180;
+          const MENU_H = 180;
+          const left = Math.min(contextMenu.x, window.innerWidth - MENU_W - 4);
+          const top = Math.min(contextMenu.y, window.innerHeight - MENU_H - 4);
+          const run = (fn: () => void) => {
+            setContextMenu(null);
+            fn();
+          };
+          return (
+            <div
+              className="sidebar-context-menu"
+              style={{ left, top }}
+              role="menu"
+              onClick={(e) => e.stopPropagation()}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <button
+                role="menuitem"
+                onClick={() => run(() => setEditingInstanceId(instance.id))}
+              >
+                Rename
+              </button>
+              <button
+                role="menuitem"
+                onClick={() =>
+                  run(() => {
+                    activate(instance.id);
+                    reloadActiveInstance().catch(() => {});
+                  })
+                }
+              >
+                Reload
+              </button>
+              <button
+                role="menuitem"
+                onClick={() =>
+                  run(() => setInstanceMuted(instance.id, !instance.muted))
+                }
+              >
+                {instance.muted ? 'Unmute' : 'Mute'}
+              </button>
+              <div className="sidebar-context-sep" role="separator" />
+              <button
+                role="menuitem"
+                className="danger"
+                onClick={() => run(() => onRemove(instance))}
+              >
+                Delete…
+              </button>
+            </div>
+          );
+        })()}
     </nav>
   );
 }
