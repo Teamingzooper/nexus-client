@@ -6,6 +6,15 @@
 - **No more auto-download**: when Nexus finds a new version, it stops there. The Updates tab shows the release notes and a **Download update** button; clicking it fetches the new build, and an **Install and restart** button appears once the download finishes. Auto-downloading was fine for most users but meant bandwidth and disk were spent without consent — this puts every step under the user's control.
 - **Release notes render cleanly**: the changelog shown in the Updates tab is now properly formatted — headings, bold, inline code, and bullet lists render the way they read on GitHub instead of as raw markdown text.
 
+### First-launch note for macOS users
+Because Nexus isn't code-signed yet, macOS may say **"Nexus is damaged and can't be opened"** the first time you launch the app. It isn't damaged — macOS flags every unsigned download that way. Open Terminal and run:
+
+```bash
+xattr -cr /Applications/Nexus.app
+```
+
+Then open Nexus normally. You only have to do this once. Full details are in the [README](https://github.com/Teamingzooper/nexus-client#first-launch).
+
 ## 1.3.1 — 2026-04-20
 
 ### Fixes

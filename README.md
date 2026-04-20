@@ -16,8 +16,26 @@ Grab the latest installer for your platform from the [Releases page](https://git
 
 ### First launch
 
-- **macOS**: if you see "Nexus can't be opened because it is from an unidentified developer", right-click the app, choose **Open**, then click **Open** in the dialog. macOS remembers your choice after that.
-- **Windows**: SmartScreen may show a warning the first time you run the installer. Click **More info → Run anyway**.
+Nexus is not code-signed yet (Apple Developer certificates cost $99/year — we'll get there), so your OS will show a scary-looking warning the first time you open it. One command or a couple of clicks, and you're in forever.
+
+#### macOS
+
+After you drag Nexus into Applications, launching may show **"Nexus is damaged and can't be opened. You should move it to the Trash."** — this is misleading. The app is fine; macOS is just refusing to open an unsigned download. Clear the download-quarantine flag once:
+
+1. Open **Terminal** (Applications → Utilities → Terminal, or ⌘Space → "Terminal").
+2. Paste and run:
+
+   ```bash
+   xattr -cr /Applications/Nexus.app
+   ```
+
+3. Open Nexus normally. It'll launch and remember your choice — you never have to do this again.
+
+If you see a milder **"can't be opened because it is from an unidentified developer"** message instead, right-click the app → **Open** → click **Open** in the dialog. Same result, no Terminal needed.
+
+#### Windows
+
+SmartScreen may show a warning the first time you run the installer. Click **More info → Run anyway**.
 
 ## Getting started
 
