@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.1 — 2026-04-20
+
+### Fixes
+- **Auto-updater manifest missing on releases**: the release workflow was building the `latest-mac.yml` / `latest.yml` / `latest-linux.yml` updater manifests but not uploading them to the GitHub release. Without those files, electron-updater couldn't find available updates, so "Check for updates" in 1.2.1 / 1.3.0 clients returned `cannot find latest.yml`. Manifests are now shipped with every release, and Mac `.zip` artifacts are re-attached (electron-updater on macOS uses the zip as the primary update payload).
+
 ## 1.3.0 — 2026-04-20
 
 ### Features

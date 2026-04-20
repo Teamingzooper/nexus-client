@@ -112,6 +112,12 @@ jobs:
           echo "$BODY" >> "$GITHUB_OUTPUT"
           echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
 
+      # The *.yml manifests are what electron-updater fetches from the
+      # release page to learn that a new version exists. Without them the
+      # "Check for updates" button in older Nexus clients fails with
+      # "cannot find latest-*.yml". Each platform uploads only its own
+      # manifest file — latest-mac.yml for Mac, latest.yml for Windows,
+      # latest-linux.yml for Linux.
       - name: Upload release assets (macOS)
         if: matrix.os == 'macos-latest' && env.DO_MAC == 'true'
         uses: softprops/action-gh-release@v2
@@ -124,6 +130,8 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/*.dmg
+            release/*.zip
+            release/latest-mac.yml
 
       - name: Upload release assets (Windows)
         if: matrix.os == 'windows-latest' && env.DO_WIN == 'true'
@@ -137,6 +145,7 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/*.exe
+            release/latest.yml
 
       - name: Upload release assets (Linux)
         if: matrix.os == 'ubuntu-latest' && env.DO_LINUX == 'true'
@@ -150,3 +159,4 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/*.AppImage
+            release/latest-linux.yml
