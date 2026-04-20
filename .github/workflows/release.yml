@@ -19,6 +19,7 @@ on:
           - all
           - mac
           - win
+          - linux
 
 permissions:
   contents: write
@@ -27,19 +28,20 @@ jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    # DO_MAC / DO_WIN gate the platform-specific steps (installer build,
-    # updater manifest, upload). matrix.os isn't available in job-level
-    # if conditions, so we can't skip the whole job — the early steps
-    # (checkout, npm ci, typecheck, unit tests, bundle build) run on both
-    # runners regardless, but no installers are produced or uploaded for
-    # a deselected platform.
+    # DO_MAC / DO_WIN / DO_LINUX gate the platform-specific steps (installer
+    # build, updater manifest, upload). matrix.os isn't available in
+    # job-level if conditions, so we can't skip the whole job — the early
+    # steps (checkout, npm ci, typecheck, unit tests, bundle build) run on
+    # every runner regardless, but no installers are produced or uploaded
+    # for a deselected platform.
     env:
       DO_MAC: ${{ github.event_name != 'workflow_dispatch' || inputs.platforms == 'all' || inputs.platforms == 'mac' }}
       DO_WIN: ${{ github.event_name != 'workflow_dispatch' || inputs.platforms == 'all' || inputs.platforms == 'win' }}
+      DO_LINUX: ${{ github.event_name != 'workflow_dispatch' || inputs.platforms == 'all' || inputs.platforms == 'linux' }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest, windows-latest, ubuntu-latest]
 
     steps:
       - name: Checkout
@@ -79,17 +81,25 @@ jobs:
         if: matrix.os == 'windows-latest' && env.DO_WIN == 'true'
         run: npx electron-builder --win --publish never
 
-      # Upload only DMG (mac) and EXE (win). The .blockmap files have a
-      # different suffix (*.dmg.blockmap, *.exe.blockmap) and are not
-      # matched by these globs, so they stay on the runner. Mac ZIPs are
-      # built by electron-builder but intentionally not uploaded.
-      # Source code tarballs are auto-attached by GitHub Releases.
+      - name: Build installer (Linux — AppImage)
+        if: matrix.os == 'ubuntu-latest' && env.DO_LINUX == 'true'
+        run: npx electron-builder --linux --publish never
+
+      # Upload only DMG (mac), EXE (win), and AppImage (linux). The
+      # .blockmap files have a different suffix (*.dmg.blockmap,
+      # *.exe.blockmap) and are not matched by these globs, so they stay
+      # on the runner. Mac ZIPs are built by electron-builder but
+      # intentionally not uploaded. Source code tarballs are auto-attached
+      # by GitHub Releases.
       - name: Generate updater manifest (macOS)
         if: matrix.os == 'macos-latest' && env.DO_MAC == 'true'
         run: node scripts/build-updater-yml.js mac
       - name: Generate updater manifest (Windows)
         if: matrix.os == 'windows-latest' && env.DO_WIN == 'true'
         run: node scripts/build-updater-yml.js win
+      - name: Generate updater manifest (Linux)
+        if: matrix.os == 'ubuntu-latest' && env.DO_LINUX == 'true'
+        run: node scripts/build-updater-yml.js linux
 
       - name: Extract changelog for this version
         id: changelog
@@ -127,3 +137,16 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/*.exe
+
+      - name: Upload release assets (Linux)
+        if: matrix.os == 'ubuntu-latest' && env.DO_LINUX == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
+          body: ${{ steps.changelog.outputs.body }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            release/*.AppImage

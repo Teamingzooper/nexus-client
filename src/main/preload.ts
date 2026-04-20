@@ -88,6 +88,12 @@ const api = {
     invoke(IPC.PREFS_SET_SIDEBAR_COMPACT, enabled),
   setSidebarWidth: (width: number): Promise<void> =>
     invoke(IPC.PREFS_SET_SIDEBAR_WIDTH, width),
+  setCloseToTray: (enabled: boolean): Promise<void> =>
+    invoke(IPC.PREFS_SET_CLOSE_TO_TRAY, enabled),
+  setGlobalShortcutEnabled: (enabled: boolean): Promise<void> =>
+    invoke(IPC.PREFS_SET_GLOBAL_SHORTCUT_ENABLED, enabled),
+  setGlobalShortcut: (accelerator: string): Promise<void> =>
+    invoke(IPC.PREFS_SET_GLOBAL_SHORTCUT, accelerator),
   testNotification: (instanceId?: string | null): Promise<boolean> =>
     invoke(IPC.NOTIFY_TEST, instanceId ?? null),
 
@@ -123,6 +129,23 @@ const api = {
   getUpdaterStatus: (): Promise<unknown> => invoke(IPC.UPDATER_STATUS),
   getAppVersion: (): Promise<{ version: string; isPackaged: boolean }> =>
     invoke(IPC.APP_VERSION),
+
+  // Community modules
+  listCommunityModules: (): Promise<{
+    tag: string;
+    name: string;
+    modules: {
+      id: string;
+      name: string;
+      version: string;
+      author: string | null;
+      description: string | null;
+      url: string;
+      zip: string;
+    }[];
+  }> => invoke(IPC.COMMUNITY_MODULES_LIST),
+  installCommunityModule: (moduleId: string, overwrite = false): Promise<void> =>
+    invoke(IPC.COMMUNITY_MODULES_INSTALL, { moduleId, overwrite }),
   onUpdaterStatus: (cb: (status: unknown) => void): (() => void) => {
     const listener = (_: unknown, payload: unknown) => cb(payload);
     ipcRenderer.on('nexus:updater:status', listener);

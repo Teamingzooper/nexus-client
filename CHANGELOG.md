@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.3.0 — 2026-04-20
+
+### Features
+- **System tray / menu bar icon**: Nexus now runs in the system tray (or macOS menu bar). Left-click toggles the window; right-click opens a menu listing every instance with its unread count, plus shortcuts to Settings, New Instance, and Quit. The tray tooltip shows the total unread count.
+- **Optional close-to-tray**: a new toggle in **Settings → General** keeps Nexus running in the tray when you close the window, so notifications keep arriving. Quit via the tray menu or ⌘Q / Ctrl+Q.
+- **Configurable global show/hide shortcut**: enable in **Settings → General** and pick any Electron accelerator (default ``Alt+` ``) to summon or hide Nexus from anywhere.
+- **Community modules browser**: **Settings → Modules → Browse community modules** fetches third-party modules from the latest `community-v*` release on GitHub and installs them with one click. The first community module, **WeChat**, is available now.
+- **Linux AppImage** is built and attached to every release alongside the macOS DMG and Windows installer.
+
+### Under the hood
+- New `community-modules/` folder in the repo + `.github/workflows/community-modules.yml` that packages each subfolder into a `.zip` and publishes it as a GitHub release on `community-v*` tags. `scripts/pack-community-modules.js` also emits an `index.json` manifest the in-app browser consumes.
+- `scripts/build-updater-yml.js` learned a `linux` target so electron-updater can read an AppImage release.
+
 ## 1.2.1 — 2026-04-20
 
 ### Fixes

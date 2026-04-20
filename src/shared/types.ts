@@ -80,6 +80,9 @@ export const IPC = {
   PREFS_SET_LAUNCH_AT_LOGIN: 'nexus:prefs:set-launch-at-login',
   PREFS_SET_SIDEBAR_COMPACT: 'nexus:prefs:set-sidebar-compact',
   PREFS_SET_SIDEBAR_WIDTH: 'nexus:prefs:set-sidebar-width',
+  PREFS_SET_CLOSE_TO_TRAY: 'nexus:prefs:set-close-to-tray',
+  PREFS_SET_GLOBAL_SHORTCUT_ENABLED: 'nexus:prefs:set-global-shortcut-enabled',
+  PREFS_SET_GLOBAL_SHORTCUT: 'nexus:prefs:set-global-shortcut',
   PROFILES_LIST: 'nexus:profiles:list',
   PROFILES_CURRENT: 'nexus:profiles:current',
   PROFILES_STATE: 'nexus:profiles:state',
@@ -93,4 +96,6 @@ export const IPC = {
   UPDATER_INSTALL: 'nexus:updater:install',
   UPDATER_STATUS: 'nexus:updater:status',
   APP_VERSION: 'nexus:app:version',
+  COMMUNITY_MODULES_LIST: 'nexus:community-modules:list',
+  COMMUNITY_MODULES_INSTALL: 'nexus:community-modules:install',
 } as const;

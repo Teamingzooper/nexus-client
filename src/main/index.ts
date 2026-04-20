@@ -12,6 +12,8 @@ import { ViewService } from './services/viewService';
 import { NotificationService } from './services/notificationService';
 import { MenuService } from './services/menuService';
 import { UpdaterService } from './services/updaterService';
+import { TrayService } from './services/trayService';
+import { CommunityModulesService } from './services/communityModulesService';
 import { IpcService } from './services/ipcService';
 import { DEFAULT_PROFILE_ID } from '../shared/profile';
 
@@ -67,6 +69,8 @@ async function bootstrap(): Promise<void> {
     .register(new ViewService())
     .register(new NotificationService())
     .register(new UpdaterService())
+    .register(new TrayService())
+    .register(new CommunityModulesService())
     .register(new MenuService())
     .register(new IpcService());
 
@@ -90,6 +94,9 @@ async function bootstrap(): Promise<void> {
   }
 
   const win = await windowService.create();
+
+  // Wire the tray's close-to-tray intercept now that the window exists.
+  container.get<TrayService>('tray').attachWindow();
 
   // Auto-unlock: if the previously-active profile exists and is password-less,
   // silently unlock it so returning users skip the picker. Otherwise the

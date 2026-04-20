@@ -1,0 +1,24 @@
+{
+  "id": "wechat",
+  "name": "WeChat",
+  "version": "1.0.0",
+  "author": "Nexus community",
+  "description": "WeChat Web embedded in Nexus. Requires scanning a QR code from the WeChat mobile app to sign in.",
+  "url": "https://web.wechat.com",
+  "icon": "icon.svg",
+  "partition": "persist:wechat",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "allowedOrigins": [
+    "https://wx.qq.com",
+    "https://wx2.qq.com",
+    "https://login.wx.qq.com",
+    "https://login.wx2.qq.com",
+    "https://res.wx.qq.com",
+    "https://webpush.wx.qq.com",
+    "https://webpush.wx2.qq.com"
+  ],
+  "notifications": {
+    "kind": "title",
+    "pattern": "\\((\\d+)\\)"
+  }
+}

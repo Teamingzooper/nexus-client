@@ -3,6 +3,7 @@ import { useNexus } from '../store';
 import { useOverlay } from '../hooks/useOverlay';
 import { ThemeEditor } from './ThemeEditor';
 import { UpdatesTab } from './UpdatesTab';
+import { CommunityModulesBrowser } from './CommunityModulesBrowser';
 
 interface Props {
   onClose: () => void;
@@ -22,12 +23,23 @@ export function SettingsPanel({ onClose }: Props) {
   const dndStart = useNexus((s) => s.state.dndStart ?? '22:00');
   const dndEnd = useNexus((s) => s.state.dndEnd ?? '08:00');
   const launchAtLogin = useNexus((s) => s.state.launchAtLogin ?? false);
+  const closeToTray = useNexus((s) => s.state.closeToTray ?? false);
+  const globalShortcutEnabled = useNexus((s) => s.state.globalShortcutEnabled ?? false);
+  const globalShortcut = useNexus((s) => s.state.globalShortcut ?? 'Alt+`');
 
   const setNotificationsEnabled = useNexus((s) => s.setNotificationsEnabled);
   const setNotificationSound = useNexus((s) => s.setNotificationSound);
   const setNotificationPrivacyMode = useNexus((s) => s.setNotificationPrivacyMode);
   const setDnd = useNexus((s) => s.setDnd);
   const setLaunchAtLogin = useNexus((s) => s.setLaunchAtLogin);
+  const setCloseToTray = useNexus((s) => s.setCloseToTray);
+  const setGlobalShortcutEnabled = useNexus((s) => s.setGlobalShortcutEnabled);
+  const setGlobalShortcut = useNexus((s) => s.setGlobalShortcut);
+
+  const [shortcutDraft, setShortcutDraft] = useState(globalShortcut);
+  useEffect(() => {
+    setShortcutDraft(globalShortcut);
+  }, [globalShortcut]);
 
   const testNotification = useNexus((s) => s.testNotification);
   const addInstance = useNexus((s) => s.addInstance);
@@ -37,6 +49,7 @@ export function SettingsPanel({ onClose }: Props) {
   const clearAllData = useNexus((s) => s.clearAllData);
 
   const [notifFlash, setNotifFlash] = useState<string | null>(null);
+  const [communityOpen, setCommunityOpen] = useState(false);
 
   useOverlay();
 
@@ -143,6 +156,9 @@ export function SettingsPanel({ onClose }: Props) {
                 <button onClick={() => reload()}>Reload modules</button>
                 <button onClick={() => window.nexus.openModulesDir()}>
                   Open modules folder
+                </button>
+                <button onClick={() => setCommunityOpen(true)}>
+                  Browse community modules
                 </button>
               </div>
 
@@ -328,8 +344,64 @@ export function SettingsPanel({ onClose }: Props) {
                 <div>
                   <div className="settings-toggle-title">Launch at login</div>
                   <div className="settings-toggle-desc">
-                    Open Nexus automatically when you sign in. Only takes effect in the
-                    packaged app — dev builds ignore this setting.
+                    Open Nexus automatically when you sign in.
+                  </div>
+                </div>
+              </label>
+
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={closeToTray}
+                  onChange={(e) => setCloseToTray(e.target.checked)}
+                />
+                <div>
+                  <div className="settings-toggle-title">Close to system tray</div>
+                  <div className="settings-toggle-desc">
+                    When you close the Nexus window, keep the app running in the
+                    system tray (menu bar on macOS) so notifications keep arriving.
+                    Quit from the tray menu or <kbd>⌘Q</kbd>/<kbd>Ctrl+Q</kbd>.
+                  </div>
+                </div>
+              </label>
+
+              <label className="settings-toggle">
+                <input
+                  type="checkbox"
+                  checked={globalShortcutEnabled}
+                  onChange={(e) => setGlobalShortcutEnabled(e.target.checked)}
+                />
+                <div>
+                  <div className="settings-toggle-title">Global show/hide shortcut</div>
+                  <div className="settings-toggle-desc">
+                    Summon or hide Nexus from anywhere with a system-wide keyboard
+                    shortcut. Use Electron accelerator syntax (e.g. <code>Alt+`</code>,{' '}
+                    <code>CommandOrControl+Shift+N</code>).
+                  </div>
+                  <div className="settings-toggle-actions">
+                    <input
+                      type="text"
+                      className="shortcut-input"
+                      value={shortcutDraft}
+                      disabled={!globalShortcutEnabled}
+                      onChange={(e) => setShortcutDraft(e.target.value)}
+                      onBlur={() => {
+                        if (shortcutDraft.trim() && shortcutDraft !== globalShortcut) {
+                          setGlobalShortcut(shortcutDraft).catch(() => {
+                            setShortcutDraft(globalShortcut);
+                          });
+                        } else {
+                          setShortcutDraft(globalShortcut);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                        if (e.key === 'Escape') {
+                          setShortcutDraft(globalShortcut);
+                          (e.target as HTMLInputElement).blur();
+                        }
+                      }}
+                    />
                   </div>
                 </div>
               </label>
@@ -369,6 +441,10 @@ export function SettingsPanel({ onClose }: Props) {
           )}
         </div>
       </div>
+
+      {communityOpen && (
+        <CommunityModulesBrowser onClose={() => setCommunityOpen(false)} />
+      )}
     </div>
   );
 }

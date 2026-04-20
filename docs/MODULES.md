@@ -67,7 +67,21 @@ Hover the right edge of the sidebar until you see the resize cursor, then drag. 
 
 ## Installing a third-party module
 
-Nexus modules are just folders. If someone shares one with you:
+There are two ways to add a module that doesn't ship with Nexus.
+
+### Option A — Browse community modules (recommended)
+
+Nexus ships with an in-app browser for community-maintained modules hosted on GitHub.
+
+1. Open **Settings → Modules**.
+2. Click **Browse community modules**.
+3. Pick one from the list and click **Install**. Nexus downloads it, unzips it into your modules folder, and reloads the module list automatically — no file copying required.
+
+Already-installed modules show an **Installed** pill and a **Reinstall** button in case you want the latest version.
+
+### Option B — Install by hand (for modules shared out-of-band)
+
+If someone sends you a module folder directly (e.g. as a zip):
 
 1. Open **Settings → Modules**.
 2. Click **Open modules folder**. Nexus opens the folder where user-installed modules live.

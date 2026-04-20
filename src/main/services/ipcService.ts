@@ -22,6 +22,8 @@ import type { ProfileService } from './profileService';
 import type { ViewService } from './viewService';
 import type { NotificationService } from './notificationService';
 import type { UpdaterService } from './updaterService';
+import type { TrayService } from './trayService';
+import type { CommunityModulesService } from './communityModulesService';
 
 export class IpcService implements Service {
   readonly name = 'ipc';
@@ -40,6 +42,8 @@ export class IpcService implements Service {
     const notifications = ctx.container.get<NotificationService>('notifications');
     const windowSvc = ctx.container.get<WindowService>('window');
     const updater = ctx.container.get<UpdaterService>('updater');
+    const tray = ctx.container.get<TrayService>('tray');
+    const community = ctx.container.get<CommunityModulesService>('community-modules');
 
     this.router.register(IPC.MODULES_LIST, { handler: () => registry.list() });
 
@@ -264,6 +268,30 @@ export class IpcService implements Service {
       },
     });
 
+    this.router.register(IPC.PREFS_SET_CLOSE_TO_TRAY, {
+      input: z.boolean(),
+      handler: (enabled) => {
+        settings.setCloseToTray(enabled);
+        tray.refreshCloseToTray();
+      },
+    });
+
+    this.router.register(IPC.PREFS_SET_GLOBAL_SHORTCUT_ENABLED, {
+      input: z.boolean(),
+      handler: (enabled) => {
+        settings.setGlobalShortcutEnabled(enabled);
+        tray.refreshGlobalShortcut();
+      },
+    });
+
+    this.router.register(IPC.PREFS_SET_GLOBAL_SHORTCUT, {
+      input: z.string().min(1).max(64),
+      handler: (accel) => {
+        settings.setGlobalShortcut(accel);
+        tray.refreshGlobalShortcut();
+      },
+    });
+
     this.router.register(IPC.SIDEBAR_UPDATE_LAYOUT, {
       input: sidebarLayoutSchema,
       handler: (layout) => {
@@ -407,6 +435,24 @@ export class IpcService implements Service {
         version: app.getVersion(),
         isPackaged: app.isPackaged,
       }),
+    });
+
+    this.router.register(IPC.COMMUNITY_MODULES_LIST, {
+      handler: () => community.list(),
+    });
+
+    this.router.register(IPC.COMMUNITY_MODULES_INSTALL, {
+      input: z.object({
+        moduleId: z
+          .string()
+          .min(1)
+          .max(64)
+          .regex(/^[a-z0-9][a-z0-9-_]*$/),
+        overwrite: z.boolean().optional(),
+      }),
+      handler: async ({ moduleId, overwrite }) => {
+        await community.install(moduleId, overwrite === true);
+      },
     });
   }
 
