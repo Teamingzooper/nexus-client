@@ -68,6 +68,9 @@ declare global {
       setLaunchAtLogin(enabled: boolean): Promise<void>;
       setSidebarCompact(enabled: boolean): Promise<void>;
       setSidebarWidth(width: number): Promise<void>;
+      setCloseToTray(enabled: boolean): Promise<void>;
+      setGlobalShortcutEnabled(enabled: boolean): Promise<void>;
+      setGlobalShortcut(accelerator: string): Promise<void>;
       testNotification(instanceId?: string | null): Promise<boolean>;
 
       listProfiles(): Promise<ProfileSummary[]>;
@@ -96,6 +99,21 @@ declare global {
       getUpdaterStatus(): Promise<UpdateStatus>;
       onUpdaterStatus(cb: (status: UpdateStatus) => void): () => void;
       getAppVersion(): Promise<{ version: string; isPackaged: boolean }>;
+
+      listCommunityModules(): Promise<{
+        tag: string;
+        name: string;
+        modules: {
+          id: string;
+          name: string;
+          version: string;
+          author: string | null;
+          description: string | null;
+          url: string;
+          zip: string;
+        }[];
+      }>;
+      installCommunityModule(moduleId: string, overwrite?: boolean): Promise<void>;
     };
   }
 }

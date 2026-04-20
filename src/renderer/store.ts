@@ -74,6 +74,9 @@ interface NexusStore {
   setLaunchAtLogin(enabled: boolean): Promise<void>;
   setSidebarCompact(enabled: boolean): Promise<void>;
   setSidebarWidth(width: number): Promise<void>;
+  setCloseToTray(enabled: boolean): Promise<void>;
+  setGlobalShortcutEnabled(enabled: boolean): Promise<void>;
+  setGlobalShortcut(accelerator: string): Promise<void>;
   testNotification(): Promise<boolean>;
   exportThemePack(
     ids: string[],
@@ -142,6 +145,9 @@ const DEFAULT_APP_STATE: AppState = {
   launchAtLogin: false,
   sidebarCompact: false,
   sidebarWidth: 240,
+  closeToTray: false,
+  globalShortcutEnabled: false,
+  globalShortcut: 'Alt+`',
 };
 
 const DEFAULT_STATE: CompositeState = {
@@ -317,6 +323,23 @@ export const useNexus = create<NexusStore>((set, get) => ({
     // Optimistic update so the drag feels live; persistence confirms.
     set((s) => ({ state: { ...s.state, sidebarWidth: clamped } }));
     await window.nexus.setSidebarWidth(clamped);
+  },
+
+  async setCloseToTray(enabled) {
+    await window.nexus.setCloseToTray(enabled);
+    set((s) => ({ state: { ...s.state, closeToTray: enabled } }));
+  },
+
+  async setGlobalShortcutEnabled(enabled) {
+    await window.nexus.setGlobalShortcutEnabled(enabled);
+    set((s) => ({ state: { ...s.state, globalShortcutEnabled: enabled } }));
+  },
+
+  async setGlobalShortcut(accelerator) {
+    const trimmed = accelerator.trim();
+    if (!trimmed) return;
+    await window.nexus.setGlobalShortcut(trimmed);
+    set((s) => ({ state: { ...s.state, globalShortcut: trimmed } }));
   },
 
   async testNotification() {

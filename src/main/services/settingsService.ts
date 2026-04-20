@@ -25,6 +25,9 @@ const DEFAULT_STATE: AppState = {
   launchAtLogin: false,
   sidebarCompact: false,
   sidebarWidth: 240,
+  closeToTray: false,
+  globalShortcutEnabled: false,
+  globalShortcut: 'Alt+`',
   windowState: { width: 1280, height: 820 },
 };
 
@@ -145,6 +148,25 @@ export class SettingsService implements Service {
     const clamped = Math.max(68, Math.min(600, Math.round(width)));
     if (this._state.sidebarWidth === clamped) return;
     this._state = { ...this._state, sidebarWidth: clamped };
+    this.queueWrite();
+  }
+
+  setCloseToTray(enabled: boolean): void {
+    if (this._state.closeToTray === enabled) return;
+    this._state = { ...this._state, closeToTray: enabled };
+    this.queueWrite();
+  }
+
+  setGlobalShortcutEnabled(enabled: boolean): void {
+    if (this._state.globalShortcutEnabled === enabled) return;
+    this._state = { ...this._state, globalShortcutEnabled: enabled };
+    this.queueWrite();
+  }
+
+  setGlobalShortcut(accelerator: string): void {
+    const trimmed = accelerator.trim().slice(0, 64);
+    if (!trimmed || this._state.globalShortcut === trimmed) return;
+    this._state = { ...this._state, globalShortcut: trimmed };
     this.queueWrite();
   }
 

@@ -1,0 +1,61 @@
+name: Community Modules
+
+# Fires on tags like `community-v1`, `community-v2`, etc. Each push of such a
+# tag publishes (or updates) a GitHub Release of the same name containing one
+# .zip per module in community-modules/ plus an index.json manifest that the
+# in-app browser reads to list what's available.
+on:
+  push:
+    tags:
+      - "community-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Community tag to (re)build (e.g. community-v1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    name: Pack and upload community modules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Pack modules
+        run: node scripts/pack-community-modules.js
+
+      - name: List built assets
+        run: ls -lah community-modules/dist
+
+      - name: Upload to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
+          body: |
+            Community-maintained Nexus modules.
+
+            Each `.zip` on this release is a drop-in module folder. Install
+            one from Settings → Modules → Browse community modules inside
+            Nexus, or download manually and unzip into your Nexus modules
+            folder (Settings → Modules → Open modules folder).
+
+            `index.json` is the machine-readable list of what's available.
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            community-modules/dist/*.zip
+            community-modules/dist/index.json

@@ -20,14 +20,15 @@
  *
  * Usage:  node scripts/build-updater-yml.js mac
  *         node scripts/build-updater-yml.js win
+ *         node scripts/build-updater-yml.js linux
  */
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const target = process.argv[2];
-if (target !== 'mac' && target !== 'win') {
-  console.error('usage: build-updater-yml.js mac|win');
+if (target !== 'mac' && target !== 'win' && target !== 'linux') {
+  console.error('usage: build-updater-yml.js mac|win|linux');
   process.exit(2);
 }
 
@@ -98,6 +99,21 @@ function yamlForWin() {
   };
 }
 
+function yamlForLinux() {
+  const images = listExt('.AppImage');
+  if (images.length === 0) throw new Error('no .AppImage found in release/');
+  const fileEntries = images.map(fileEntry);
+  const primary = images[0];
+  const primaryEntry = fileEntries.find((e) => e.url === primary);
+  return {
+    version,
+    files: fileEntries,
+    path: primary,
+    sha512: primaryEntry.sha512,
+    releaseDate: new Date().toISOString(),
+  };
+}
+
 function toYaml(obj, indent = 0) {
   const pad = '  '.repeat(indent);
   if (Array.isArray(obj)) {
@@ -119,9 +135,11 @@ function toYaml(obj, indent = 0) {
   return `${pad}${obj}\n`;
 }
 
-const manifest = target === 'mac' ? yamlForMac() : yamlForWin();
+const manifest =
+  target === 'mac' ? yamlForMac() : target === 'win' ? yamlForWin() : yamlForLinux();
 const yaml = toYaml(manifest);
-const outName = target === 'mac' ? 'latest-mac.yml' : 'latest.yml';
+const outName =
+  target === 'mac' ? 'latest-mac.yml' : target === 'win' ? 'latest.yml' : 'latest-linux.yml';
 const outPath = path.join(releaseDir, outName);
 fs.writeFileSync(outPath, yaml, 'utf8');
 console.log(`wrote ${outPath}`);

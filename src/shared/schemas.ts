@@ -134,6 +134,9 @@ export const appStateSchema = z.object({
   launchAtLogin: z.boolean().optional(),
   sidebarCompact: z.boolean().optional(),
   sidebarWidth: z.number().int().min(68).max(600).optional(),
+  closeToTray: z.boolean().optional(),
+  globalShortcutEnabled: z.boolean().optional(),
+  globalShortcut: z.string().max(64).optional(),
   windowState: z
     .object({
       x: z.number().optional(),
