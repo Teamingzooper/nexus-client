@@ -93,7 +93,12 @@ export class UpdaterService implements Service {
       return;
     }
 
-    this.autoUpdater.autoDownload = true;
+    // Do NOT auto-download. We only want the updater to surface that an
+    // update is available — the user clicks "Download update" in Settings
+    // to trigger the actual fetch, and "Install and restart" once the
+    // download finishes. Keeps bandwidth and storage use under the user's
+    // control.
+    this.autoUpdater.autoDownload = false;
     this.autoUpdater.autoInstallOnAppQuit = true;
     this.autoUpdater.logger = {
       info: (m: string) => this.logger.info(`[updater] ${m}`),
@@ -141,6 +146,25 @@ export class UpdaterService implements Service {
     if (!this.autoUpdater) return this.currentStatus;
     try {
       await this.autoUpdater.checkForUpdates();
+    } catch (err) {
+      this.setStatus({
+        state: 'error',
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
+    return this.currentStatus;
+  }
+
+  async downloadUpdate(): Promise<UpdateStatus> {
+    if (!this.autoUpdater) return this.currentStatus;
+    if (
+      this.currentStatus.state === 'downloading' ||
+      this.currentStatus.state === 'downloaded'
+    ) {
+      return this.currentStatus;
+    }
+    try {
+      await this.autoUpdater.downloadUpdate();
     } catch (err) {
       this.setStatus({
         state: 'error',

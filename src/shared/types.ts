@@ -93,6 +93,7 @@ export const IPC = {
   PROFILES_RENAME: 'nexus:profiles:rename',
   PROFILES_CHANGE_PASSWORD: 'nexus:profiles:change-password',
   UPDATER_CHECK: 'nexus:updater:check',
+  UPDATER_DOWNLOAD: 'nexus:updater:download',
   UPDATER_INSTALL: 'nexus:updater:install',
   UPDATER_STATUS: 'nexus:updater:status',
   APP_VERSION: 'nexus:app:version',

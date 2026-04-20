@@ -420,6 +420,10 @@ export class IpcService implements Service {
       handler: async () => updater.checkForUpdates(),
     });
 
+    this.router.register(IPC.UPDATER_DOWNLOAD, {
+      handler: async () => updater.downloadUpdate(),
+    });
+
     this.router.register(IPC.UPDATER_INSTALL, {
       handler: () => {
         updater.quitAndInstall();

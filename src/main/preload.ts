@@ -125,6 +125,7 @@ const api = {
 
   // Updater
   checkForUpdates: (): Promise<unknown> => invoke(IPC.UPDATER_CHECK),
+  downloadUpdate: (): Promise<unknown> => invoke(IPC.UPDATER_DOWNLOAD),
   installUpdate: (): Promise<void> => invoke(IPC.UPDATER_INSTALL),
   getUpdaterStatus: (): Promise<unknown> => invoke(IPC.UPDATER_STATUS),
   getAppVersion: (): Promise<{ version: string; isPackaged: boolean }> =>

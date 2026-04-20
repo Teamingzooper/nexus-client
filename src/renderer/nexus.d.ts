@@ -95,6 +95,7 @@ declare global {
       ): Promise<void>;
 
       checkForUpdates(): Promise<UpdateStatus>;
+      downloadUpdate(): Promise<UpdateStatus>;
       installUpdate(): Promise<void>;
       getUpdaterStatus(): Promise<UpdateStatus>;
       onUpdaterStatus(cb: (status: UpdateStatus) => void): () => void;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.2 — 2026-04-20
+
+### Changes
+- **No more auto-download**: when Nexus finds a new version, it stops there. The Updates tab shows the release notes and a **Download update** button; clicking it fetches the new build, and an **Install and restart** button appears once the download finishes. Auto-downloading was fine for most users but meant bandwidth and disk were spent without consent — this puts every step under the user's control.
+- **Release notes render cleanly**: the changelog shown in the Updates tab is now properly formatted — headings, bold, inline code, and bullet lists render the way they read on GitHub instead of as raw markdown text.
+
 ## 1.3.1 — 2026-04-20
 
 ### Fixes

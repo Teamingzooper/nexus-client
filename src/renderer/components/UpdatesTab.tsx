@@ -1,27 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import type { UpdateStatus } from '../nexus';
+import { Markdown } from './Markdown';
 
 type AppInfo = { version: string; isPackaged: boolean };
 
 /**
- * Settings → Updates. Manual check-for-updates UI backed by the main-process
- * UpdaterService (electron-updater, pointed at the GitHub release feed in
- * package.json).
+ * Settings → Updates. Manual check / download / install UI backed by the
+ * main-process UpdaterService (electron-updater, pointed at the GitHub
+ * release feed in package.json).
  *
- * Per release, shows: release name (falls back to version), version number,
- * release date, and the changelog body from the GitHub release. The "Install
- * and restart" button calls updater.quitAndInstall() once the payload is on
- * disk; electron-updater applies the update in-place, so existing module
- * partitions (cookies/logins) survive.
+ * Flow:
+ *   idle / not-available  →  click "Check for updates"
+ *   available             →  shows release notes + "Download update" button
+ *   downloading           →  progress bar + %
+ *   downloaded            →  "Install and restart" button
+ *
+ * auto-download is disabled in UpdaterService — every step is a manual user
+ * action, so bandwidth and storage are under their control.
  *
  * In dev (app.isPackaged === false) the updater is intentionally disabled
  * because the latest-*.yml manifests only exist for tagged GitHub releases.
- * We show a note instead of silently pretending nothing happened.
  */
 export function UpdatesTab() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
   const [status, setStatus] = useState<UpdateStatus>({ state: 'idle' });
   const [checking, setChecking] = useState(false);
+  const [downloadRequested, setDownloadRequested] = useState(false);
   const [lastCheckError, setLastCheckError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,9 +47,10 @@ export function UpdatesTab() {
     const off = window.nexus.onUpdaterStatus((s) => {
       if (!mounted) return;
       setStatus(s);
-      // Checking state comes from the backend; flip our local spinner off
-      // once the backend has settled into a terminal state.
       if (s.state !== 'checking') setChecking(false);
+      if (s.state === 'downloading' || s.state === 'downloaded') {
+        setDownloadRequested(false);
+      }
       if (s.state !== 'error') setLastCheckError(null);
       else setLastCheckError(s.message);
     });
@@ -61,13 +66,24 @@ export function UpdatesTab() {
     setChecking(true);
     try {
       const result = await window.nexus.checkForUpdates();
-      // Backend returns its current status after the check completes; use it
-      // as the authoritative snapshot instead of waiting for the subscription.
       setStatus(result);
       if (result.state !== 'checking') setChecking(false);
       if (result.state === 'error') setLastCheckError(result.message);
     } catch (err) {
       setChecking(false);
+      setLastCheckError(err instanceof Error ? err.message : String(err));
+    }
+  };
+
+  const onDownload = async () => {
+    setLastCheckError(null);
+    setDownloadRequested(true);
+    try {
+      const result = await window.nexus.downloadUpdate();
+      setStatus(result);
+      if (result.state === 'error') setLastCheckError(result.message);
+    } catch (err) {
+      setDownloadRequested(false);
       setLastCheckError(err instanceof Error ? err.message : String(err));
     }
   };
@@ -90,10 +106,7 @@ export function UpdatesTab() {
 
       {!isPackaged && appInfo && (
         <p className="editor-hint">
-          Updates are disabled in development builds. Run the packaged app
-          (<code>npm run launch</code>) to see the updater in action — it
-          reads from the GitHub release feed configured in{' '}
-          <code>package.json</code>.
+          Updates are disabled in development builds — packaged releases only.
         </p>
       )}
 
@@ -117,6 +130,8 @@ export function UpdatesTab() {
         <UpdateDetails
           status={status}
           currentVersion={currentVersion}
+          downloadRequested={downloadRequested}
+          onDownload={onDownload}
           onInstall={onInstall}
         />
       )}
@@ -142,10 +157,18 @@ interface DetailsProps {
     { state: 'available' } | { state: 'downloading' } | { state: 'downloaded' }
   >;
   currentVersion: string;
+  downloadRequested: boolean;
+  onDownload: () => void;
   onInstall: () => void;
 }
 
-function UpdateDetails({ status, currentVersion, onInstall }: DetailsProps) {
+function UpdateDetails({
+  status,
+  currentVersion,
+  downloadRequested,
+  onDownload,
+  onInstall,
+}: DetailsProps) {
   if (status.state === 'downloading') {
     return (
       <div className="updates-found">
@@ -182,15 +205,21 @@ function UpdateDetails({ status, currentVersion, onInstall }: DetailsProps) {
             Install and restart
           </button>
         ) : (
-          <span className="updates-pill">Downloading…</span>
+          <button
+            className="confirm-ok"
+            onClick={onDownload}
+            disabled={downloadRequested}
+          >
+            {downloadRequested ? 'Starting download…' : 'Download update'}
+          </button>
         )}
       </div>
 
       {notes ? (
-        <>
+        <div className="updates-changelog">
           <div className="updates-changelog-label">Release notes</div>
-          <pre className="updates-changelog">{notes}</pre>
-        </>
+          <Markdown source={notes} />
+        </div>
       ) : (
         <p className="editor-hint">No release notes were published for this version.</p>
       )}
