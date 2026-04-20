@@ -231,14 +231,54 @@ export class ViewService implements Service {
     const extraOrigins = (manifest.allowedOrigins ?? []).map((u) => new URL(u).origin);
     installNavigationGuard(view.webContents, origin, this.logger, extraOrigins);
 
-    view.webContents.on('dom-ready', async () => {
-      // 1. Inject the Nexus main-world Notification shim. Idempotent — safe to
-      //    re-run on reload. Must run in the main world (second arg = true).
+    const injectShim = async () => {
+      // The shim patches window.Notification and
+      // ServiceWorkerRegistration.prototype.showNotification. Each frame has
+      // its own window, so we have to inject into every frame in the subtree
+      // — Teams in particular embeds chat/activity/calls in iframes and
+      // notifications originate from those subframes. Idempotent.
       try {
         await view.webContents.executeJavaScript(mainWorldNotificationShim, true);
       } catch (err) {
         this.logger.warn(`notification shim inject failed for ${instance.id}`, err);
       }
+      try {
+        const main = view.webContents.mainFrame;
+        if (main) {
+          for (const frame of main.framesInSubtree) {
+            if (frame === main) continue;
+            frame
+              .executeJavaScript(mainWorldNotificationShim, true)
+              .catch(() => {
+                // Subframes can be cross-origin or already detached — the shim
+                // is best-effort per-frame and shouldn't log on every miss.
+              });
+          }
+        }
+      } catch {
+        // mainFrame may be unavailable on shutdown
+      }
+    };
+
+    // Late-created subframes (Teams spawns iframes for chat/activity after the
+    // initial load) won't hit the dom-ready handler above, so we catch each
+    // frame as it finishes loading and install the shim there too.
+    view.webContents.on('did-frame-finish-load', (_e, isMainFrame, frameProcessId, frameRoutingId) => {
+      if (isMainFrame) return;
+      try {
+        const frame = view.webContents.mainFrame?.framesInSubtree.find(
+          (f) => f.processId === frameProcessId && f.routingId === frameRoutingId,
+        );
+        frame?.executeJavaScript(mainWorldNotificationShim, true).catch(() => {});
+      } catch {
+        // frame vanished between the event and the lookup
+      }
+    });
+
+    view.webContents.on('dom-ready', async () => {
+      // 1. Inject the Nexus main-world Notification shim. Idempotent — safe to
+      //    re-run on reload. Runs in every frame (see injectShim).
+      await injectShim();
 
       // 2. Inject module-specific CSS if declared in the manifest.
       if (manifest.inject?.css) {

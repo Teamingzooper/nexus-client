@@ -3,14 +3,59 @@ import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 import type { WindowService } from './windowService';
 
+export interface UpdateInfo {
+  version: string;
+  releaseName?: string | null;
+  releaseNotes?: string | null;
+  releaseDate?: string | null;
+}
+
 export type UpdateStatus =
   | { state: 'idle' }
   | { state: 'checking' }
-  | { state: 'available'; version: string; releaseNotes?: string | null }
+  | ({ state: 'available' } & UpdateInfo)
   | { state: 'not-available'; version: string }
   | { state: 'downloading'; percent: number }
-  | { state: 'downloaded'; version: string }
+  | ({ state: 'downloaded' } & UpdateInfo)
   | { state: 'error'; message: string };
+
+/**
+ * electron-updater normalizes releaseNotes into a string when feeding it
+ * from a single release, or an array of { version, note } objects when it
+ * spans multiple releases. Stringify both shapes into one markdown-ish blob
+ * so the renderer can just paste it into a <pre>.
+ */
+function normalizeReleaseNotes(input: unknown): string | null {
+  if (typeof input === 'string') return input;
+  if (Array.isArray(input)) {
+    const parts: string[] = [];
+    for (const entry of input) {
+      if (!entry || typeof entry !== 'object') continue;
+      const v = (entry as { version?: unknown }).version;
+      const n = (entry as { note?: unknown }).note;
+      const header = typeof v === 'string' ? `## ${v}\n\n` : '';
+      const body = typeof n === 'string' ? n : '';
+      if (header || body) parts.push(`${header}${body}`);
+    }
+    return parts.length ? parts.join('\n\n---\n\n') : null;
+  }
+  return null;
+}
+
+function pickInfo(info: any): UpdateInfo {
+  return {
+    version: String(info?.version ?? ''),
+    releaseName:
+      typeof info?.releaseName === 'string' && info.releaseName.length > 0
+        ? info.releaseName
+        : null,
+    releaseNotes: normalizeReleaseNotes(info?.releaseNotes),
+    releaseDate:
+      typeof info?.releaseDate === 'string' && info.releaseDate.length > 0
+        ? info.releaseDate
+        : null,
+  };
+}
 
 /**
  * Wraps electron-updater. Auto-checks on launch in packaged builds,
@@ -61,20 +106,16 @@ export class UpdaterService implements Service {
       this.setStatus({ state: 'checking' });
     });
     this.autoUpdater.on('update-available', (info: any) => {
-      this.setStatus({
-        state: 'available',
-        version: info.version,
-        releaseNotes: typeof info.releaseNotes === 'string' ? info.releaseNotes : null,
-      });
+      this.setStatus({ state: 'available', ...pickInfo(info) });
     });
     this.autoUpdater.on('update-not-available', (info: any) => {
-      this.setStatus({ state: 'not-available', version: info.version });
+      this.setStatus({ state: 'not-available', version: String(info?.version ?? '') });
     });
     this.autoUpdater.on('download-progress', (p: any) => {
       this.setStatus({ state: 'downloading', percent: Math.floor(p.percent) });
     });
     this.autoUpdater.on('update-downloaded', (info: any) => {
-      this.setStatus({ state: 'downloaded', version: info.version });
+      this.setStatus({ state: 'downloaded', ...pickInfo(info) });
     });
     this.autoUpdater.on('error', (err: any) => {
       this.setStatus({

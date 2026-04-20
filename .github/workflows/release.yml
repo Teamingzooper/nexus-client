@@ -79,14 +79,11 @@ jobs:
         if: matrix.os == 'windows-latest' && env.DO_WIN == 'true'
         run: npx electron-builder --win --publish never
 
-      # Upload only DMG / mac ZIP / Windows EXE. The .blockmap files have a
-      # different suffix (*.dmg.blockmap, *.zip.blockmap, *.exe.blockmap) and
-      # are not matched by these globs, so they stay on the runner.
+      # Upload only DMG (mac) and EXE (win). The .blockmap files have a
+      # different suffix (*.dmg.blockmap, *.exe.blockmap) and are not
+      # matched by these globs, so they stay on the runner. Mac ZIPs are
+      # built by electron-builder but intentionally not uploaded.
       # Source code tarballs are auto-attached by GitHub Releases.
-      # Generate latest-mac.yml / latest.yml so electron-updater can find
-      # this release. We do it ourselves (vs. --publish always) so we have
-      # exact control over which files end up on the release page — no
-      # blockmaps, no extra noise.
       - name: Generate updater manifest (macOS)
         if: matrix.os == 'macos-latest' && env.DO_MAC == 'true'
         run: node scripts/build-updater-yml.js mac
@@ -117,7 +114,6 @@ jobs:
           fail_on_unmatched_files: true
           files: |
             release/*.dmg
-            release/*.zip
 
       - name: Upload release assets (Windows)
         if: matrix.os == 'windows-latest' && env.DO_WIN == 'true'

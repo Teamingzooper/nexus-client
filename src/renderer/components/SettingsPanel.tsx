@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useNexus } from '../store';
 import { useOverlay } from '../hooks/useOverlay';
 import { ThemeEditor } from './ThemeEditor';
+import { UpdatesTab } from './UpdatesTab';
 
 interface Props {
   onClose: () => void;
 }
 
-type Tab = 'modules' | 'notifications' | 'themes' | 'general';
+type Tab = 'modules' | 'notifications' | 'themes' | 'general' | 'updates';
 
 export function SettingsPanel({ onClose }: Props) {
   const [tab, setTab] = useState<Tab>('modules');
@@ -21,14 +22,12 @@ export function SettingsPanel({ onClose }: Props) {
   const dndStart = useNexus((s) => s.state.dndStart ?? '22:00');
   const dndEnd = useNexus((s) => s.state.dndEnd ?? '08:00');
   const launchAtLogin = useNexus((s) => s.state.launchAtLogin ?? false);
-  const sidebarCompact = useNexus((s) => s.state.sidebarCompact ?? false);
 
   const setNotificationsEnabled = useNexus((s) => s.setNotificationsEnabled);
   const setNotificationSound = useNexus((s) => s.setNotificationSound);
   const setNotificationPrivacyMode = useNexus((s) => s.setNotificationPrivacyMode);
   const setDnd = useNexus((s) => s.setDnd);
   const setLaunchAtLogin = useNexus((s) => s.setLaunchAtLogin);
-  const setSidebarCompact = useNexus((s) => s.setSidebarCompact);
 
   const testNotification = useNexus((s) => s.testNotification);
   const addInstance = useNexus((s) => s.addInstance);
@@ -122,6 +121,14 @@ export function SettingsPanel({ onClose }: Props) {
               onClick={() => setTab('general')}
             >
               General
+            </button>
+            <button
+              role="tab"
+              aria-selected={tab === 'updates'}
+              className={tab === 'updates' ? 'tab active' : 'tab'}
+              onClick={() => setTab('updates')}
+            >
+              Updates
             </button>
           </div>
           <button className="close" onClick={onClose} aria-label="Close settings">
@@ -308,6 +315,8 @@ export function SettingsPanel({ onClose }: Props) {
 
           {tab === 'themes' && <ThemeEditor />}
 
+          {tab === 'updates' && <UpdatesTab />}
+
           {tab === 'general' && (
             <div>
               <label className="settings-toggle">
@@ -321,21 +330,6 @@ export function SettingsPanel({ onClose }: Props) {
                   <div className="settings-toggle-desc">
                     Open Nexus automatically when you sign in. Only takes effect in the
                     packaged app — dev builds ignore this setting.
-                  </div>
-                </div>
-              </label>
-
-              <label className="settings-toggle">
-                <input
-                  type="checkbox"
-                  checked={sidebarCompact}
-                  onChange={(e) => setSidebarCompact(e.target.checked)}
-                />
-                <div>
-                  <div className="settings-toggle-title">Compact sidebar</div>
-                  <div className="settings-toggle-desc">
-                    Shrink the sidebar to icons-only. Saves horizontal space for the active
-                    instance view.
                   </div>
                 </div>
               </label>

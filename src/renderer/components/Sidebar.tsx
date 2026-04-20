@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNexus } from '../store';
 import type {
   DropTarget,
@@ -18,6 +18,16 @@ import {
 
 const DRAG_MIME = 'application/x-nexus-instance';
 
+// Width geometry for the resize handle. Dragging below COMPACT_SNAP
+// locks the sidebar to COMPACT_WIDTH (icons only); dragging above it
+// restores the user's preferred expanded width (clamped to the
+// EXPANDED range). Saved width is always a "real" expanded width so
+// we have something to restore to when the user drags back out.
+const COMPACT_WIDTH = 68;
+const COMPACT_SNAP = 140;
+const EXPANDED_MIN = 200;
+const EXPANDED_MAX = 420;
+
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '').slice(0, 48);
 }
@@ -28,7 +38,8 @@ export function Sidebar() {
   const layout = useNexus((s) => s.state.sidebarLayout ?? defaultLayout());
   const activeId = useNexus((s) => s.state.activeInstanceId);
   const unread = useNexus((s) => s.unread);
-  const compact = useNexus((s) => s.state.sidebarCompact ?? false);
+  const savedCompact = useNexus((s) => s.state.sidebarCompact ?? false);
+  const savedWidth = useNexus((s) => s.state.sidebarWidth ?? 240);
   const activate = useNexus((s) => s.activateInstance);
   const removeInstance = useNexus((s) => s.removeInstance);
   const renameInstance = useNexus((s) => s.renameInstance);
@@ -36,7 +47,62 @@ export function Sidebar() {
   const openAddInstance = useNexus((s) => s.openAddInstance);
   const showConfirm = useNexus((s) => s.showConfirm);
   const setInstanceMuted = useNexus((s) => s.setInstanceMuted);
+  const setSidebarCompact = useNexus((s) => s.setSidebarCompact);
+  const setSidebarWidth = useNexus((s) => s.setSidebarWidth);
   const reloadActiveInstance = useNexus((s) => s.reloadActiveInstance);
+
+  // While dragging the resize handle we preview the new width locally
+  // so every mousemove repaints without a round-trip to main. On release
+  // we persist the settled width / compact flag.
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const dragWidthRef = useRef<number | null>(null);
+  dragWidthRef.current = dragWidth;
+  const savedCompactRef = useRef(savedCompact);
+  savedCompactRef.current = savedCompact;
+  const savedWidthRef = useRef(savedWidth);
+  savedWidthRef.current = savedWidth;
+
+  const settledWidth = savedCompact ? COMPACT_WIDTH : savedWidth;
+  const liveWidth = dragWidth ?? settledWidth;
+  const compact = liveWidth <= COMPACT_SNAP - 1;
+
+  const onHandleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = savedCompactRef.current ? COMPACT_WIDTH : savedWidthRef.current;
+      setDragWidth(startWidth);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+
+      const onMove = (ev: MouseEvent) => {
+        const next = startWidth + (ev.clientX - startX);
+        setDragWidth(Math.max(COMPACT_WIDTH, Math.min(EXPANDED_MAX, next)));
+      };
+
+      const onUp = () => {
+        const final = dragWidthRef.current;
+        setDragWidth(null);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        if (final === null) return;
+        if (final < COMPACT_SNAP) {
+          if (!savedCompactRef.current) setSidebarCompact(true).catch(() => {});
+        } else {
+          const snapped = Math.max(EXPANDED_MIN, Math.min(EXPANDED_MAX, final));
+          if (savedCompactRef.current) setSidebarCompact(false).catch(() => {});
+          if (snapped !== savedWidthRef.current) setSidebarWidth(snapped).catch(() => {});
+        }
+      };
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    },
+    [setSidebarCompact, setSidebarWidth],
+  );
 
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropHint, setDropHint] = useState<string | null>(null);
@@ -208,8 +274,9 @@ export function Sidebar() {
 
   return (
     <nav
-      className={`sidebar ${compact ? 'compact' : ''}`}
+      className={`sidebar ${compact ? 'compact' : ''} ${dragWidth !== null ? 'resizing' : ''}`}
       aria-label="Modules"
+      style={{ width: liveWidth }}
     >
       <div className="sidebar-scroll">
         {layout.groups.map((group) => {
@@ -438,6 +505,16 @@ export function Sidebar() {
           + Group
         </button>
       </div>
+
+      <div
+        className="sidebar-resize-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize sidebar"
+        title="Drag to resize the sidebar. Shrink past the threshold to collapse to icons."
+        onMouseDown={onHandleMouseDown}
+      />
+
 
       {contextMenu &&
         (() => {

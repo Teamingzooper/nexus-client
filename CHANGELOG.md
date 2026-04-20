@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.1 — 2026-04-20
+
+### Fixes
+- **Windows topbar alignment** (#2): the app header no longer reserves macOS-only traffic-light space on Windows, so the logo, Settings button, and breadcrumb now sit flush against the left edge on Windows and Linux.
+- **Teams notifications** (#4): the Notification API shim is now injected into every frame in each module view (not just the top frame), and into late-created iframes as they load. Teams renders chat, activity, and calls in iframes, so popups fired from those subframes were previously silent — they now come through.
+
+### Features
+- **Drag-to-resize sidebar** (#3): the sidebar edge is now a resize handle. Drag it to size the sidebar anywhere from 200–420 px; drag it below the threshold to snap to icons-only compact mode, drag it back out to restore. The old "Compact sidebar" checkbox in Settings is gone — one gesture now does both jobs.
+- **Updates section in Settings**: a new **Updates** tab shows your current version, lets you manually check for new releases, and displays the release name, version, release date, and changelog for any update that's available. Click **Install and restart** to update in place — your profiles, module instances, and saved logins are preserved, no reinstall or re-login required.
+
+### Other
+- Cleaner `.gitignore` around test/Playwright artifacts.
+- User-facing documentation rewrite: `README.md`, `docs/MODULES.md`, and `docs/THEMES.md` are now aimed at end users installing and using Nexus, with tutorials for modules and theming.
+
 ## 1.2.0 — 2026-04-17
 
 ### Features

@@ -73,6 +73,7 @@ interface NexusStore {
   setInstanceMuted(instanceId: string, muted: boolean): Promise<void>;
   setLaunchAtLogin(enabled: boolean): Promise<void>;
   setSidebarCompact(enabled: boolean): Promise<void>;
+  setSidebarWidth(width: number): Promise<void>;
   testNotification(): Promise<boolean>;
   exportThemePack(
     ids: string[],
@@ -140,6 +141,7 @@ const DEFAULT_APP_STATE: AppState = {
   dndEnd: '08:00',
   launchAtLogin: false,
   sidebarCompact: false,
+  sidebarWidth: 240,
 };
 
 const DEFAULT_STATE: CompositeState = {
@@ -308,6 +310,13 @@ export const useNexus = create<NexusStore>((set, get) => ({
   async setSidebarCompact(enabled) {
     await window.nexus.setSidebarCompact(enabled);
     set((s) => ({ state: { ...s.state, sidebarCompact: enabled } }));
+  },
+
+  async setSidebarWidth(width) {
+    const clamped = Math.max(68, Math.min(600, Math.round(width)));
+    // Optimistic update so the drag feels live; persistence confirms.
+    set((s) => ({ state: { ...s.state, sidebarWidth: clamped } }));
+    await window.nexus.setSidebarWidth(clamped);
   },
 
   async testNotification() {

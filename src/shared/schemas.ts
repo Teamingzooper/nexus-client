@@ -133,6 +133,7 @@ export const appStateSchema = z.object({
   dndEnd: timeOfDay.optional(),
   launchAtLogin: z.boolean().optional(),
   sidebarCompact: z.boolean().optional(),
+  sidebarWidth: z.number().int().min(68).max(600).optional(),
   windowState: z
     .object({
       x: z.number().optional(),

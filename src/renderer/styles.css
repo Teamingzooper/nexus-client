@@ -108,10 +108,16 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px 0 84px; /* leave room for macOS traffic lights on the left */
+  padding: 0 12px;
   background: var(--nx-sidebar);
   border-bottom: 1px solid var(--nx-border);
   -webkit-app-region: drag;
+}
+
+/* macOS uses `titleBarStyle: 'hiddenInset'`, which overlays the traffic
+   lights on our header — reserve space so they don't cover the logo. */
+:root[data-platform='darwin'] .app-header {
+  padding-left: 84px;
 }
 
 .app-header button,
@@ -212,11 +218,37 @@ kbd {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  position: relative;
   transition: width var(--nx-transition);
+}
+
+/* While the user drags the edge we paint every frame at the cursor's
+   x-position. Turning off the transition avoids a lagging "catch-up"
+   animation behind the cursor. */
+.sidebar.resizing {
+  transition: none;
 }
 
 .sidebar.compact {
   width: 68px;
+}
+
+.sidebar-resize-handle {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 2;
+  background: transparent;
+  transition: background var(--nx-transition);
+}
+
+.sidebar-resize-handle:hover,
+.sidebar.resizing .sidebar-resize-handle {
+  background: var(--nx-accent);
+  opacity: 0.35;
 }
 
 .sidebar.compact .sidebar-scroll {
@@ -1640,4 +1672,122 @@ img.sidebar-logo.app-icon-img {
   border-color: rgba(0, 0, 0, 0.4);
   color: #fff;
   font-weight: 600;
+}
+
+.updates-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.updates-current {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--nx-bg);
+  border: 1px solid var(--nx-border);
+  border-radius: 8px;
+}
+
+.updates-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--nx-text-muted);
+}
+
+.updates-version {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--nx-text);
+}
+
+.updates-found {
+  padding: 14px;
+  background: var(--nx-bg);
+  border: 1px solid var(--nx-accent);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.updates-found-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.updates-found-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--nx-text);
+}
+
+.updates-found-meta {
+  font-size: 12px;
+  color: var(--nx-text-muted);
+  margin-top: 2px;
+}
+
+.updates-pill {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--nx-sidebar-hover);
+  color: var(--nx-text-muted);
+  white-space: nowrap;
+}
+
+.updates-changelog-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--nx-text-muted);
+  margin-top: 4px;
+}
+
+.updates-changelog {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 260px;
+  overflow: auto;
+  background: var(--nx-sidebar);
+  border: 1px solid var(--nx-border);
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--nx-text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.updates-progress {
+  width: 100%;
+  height: 8px;
+  background: var(--nx-sidebar);
+  border: 1px solid var(--nx-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.updates-progress-bar {
+  height: 100%;
+  background: var(--nx-accent);
+  transition: width 200ms ease;
+}
+
+.updates-progress-label {
+  font-size: 12px;
+  color: var(--nx-text-muted);
+  text-align: right;
+}
+
+.updates-error {
+  color: var(--nx-badge);
+  font-size: 12.5px;
+  margin: 0;
 }

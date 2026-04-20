@@ -25,6 +25,7 @@ async function invoke<T>(channel: string, payload?: unknown): Promise<T> {
 }
 
 const api = {
+  platform: process.platform as NodeJS.Platform,
   listModules: (): Promise<LoadedModule[]> => invoke(IPC.MODULES_LIST),
   reloadModules: (): Promise<LoadedModule[]> => invoke(IPC.MODULES_RELOAD),
   openModulesDir: (): Promise<void> => invoke(IPC.MODULES_OPEN_DIR),
@@ -85,6 +86,8 @@ const api = {
     invoke(IPC.PREFS_SET_LAUNCH_AT_LOGIN, enabled),
   setSidebarCompact: (enabled: boolean): Promise<void> =>
     invoke(IPC.PREFS_SET_SIDEBAR_COMPACT, enabled),
+  setSidebarWidth: (width: number): Promise<void> =>
+    invoke(IPC.PREFS_SET_SIDEBAR_WIDTH, width),
   testNotification: (instanceId?: string | null): Promise<boolean> =>
     invoke(IPC.NOTIFY_TEST, instanceId ?? null),
 
@@ -118,6 +121,8 @@ const api = {
   checkForUpdates: (): Promise<unknown> => invoke(IPC.UPDATER_CHECK),
   installUpdate: (): Promise<void> => invoke(IPC.UPDATER_INSTALL),
   getUpdaterStatus: (): Promise<unknown> => invoke(IPC.UPDATER_STATUS),
+  getAppVersion: (): Promise<{ version: string; isPackaged: boolean }> =>
+    invoke(IPC.APP_VERSION),
   onUpdaterStatus: (cb: (status: unknown) => void): (() => void) => {
     const listener = (_: unknown, payload: unknown) => cb(payload);
     ipcRenderer.on('nexus:updater:status', listener);

@@ -9,18 +9,26 @@ import type {
   ProfileSummary,
 } from '../shared/types';
 
+export interface UpdateInfo {
+  version: string;
+  releaseName?: string | null;
+  releaseNotes?: string | null;
+  releaseDate?: string | null;
+}
+
 export type UpdateStatus =
   | { state: 'idle' }
   | { state: 'checking' }
-  | { state: 'available'; version: string; releaseNotes?: string | null }
+  | ({ state: 'available' } & UpdateInfo)
   | { state: 'not-available'; version: string }
   | { state: 'downloading'; percent: number }
-  | { state: 'downloaded'; version: string }
+  | ({ state: 'downloaded' } & UpdateInfo)
   | { state: 'error'; message: string };
 
 declare global {
   interface Window {
     nexus: {
+      platform: NodeJS.Platform;
       listModules(): Promise<LoadedModule[]>;
       reloadModules(): Promise<LoadedModule[]>;
       openModulesDir(): Promise<void>;
@@ -59,6 +67,7 @@ declare global {
       setDnd(enabled: boolean, start: string, end: string): Promise<void>;
       setLaunchAtLogin(enabled: boolean): Promise<void>;
       setSidebarCompact(enabled: boolean): Promise<void>;
+      setSidebarWidth(width: number): Promise<void>;
       testNotification(instanceId?: string | null): Promise<boolean>;
 
       listProfiles(): Promise<ProfileSummary[]>;
@@ -86,6 +95,7 @@ declare global {
       installUpdate(): Promise<void>;
       getUpdaterStatus(): Promise<UpdateStatus>;
       onUpdaterStatus(cb: (status: UpdateStatus) => void): () => void;
+      getAppVersion(): Promise<{ version: string; isPackaged: boolean }>;
     };
   }
 }

@@ -257,6 +257,13 @@ export class IpcService implements Service {
       },
     });
 
+    this.router.register(IPC.PREFS_SET_SIDEBAR_WIDTH, {
+      input: z.number().int().min(68).max(600),
+      handler: (width) => {
+        settings.setSidebarWidth(width);
+      },
+    });
+
     this.router.register(IPC.SIDEBAR_UPDATE_LAYOUT, {
       input: sidebarLayoutSchema,
       handler: (layout) => {
@@ -393,6 +400,13 @@ export class IpcService implements Service {
 
     this.router.register(IPC.UPDATER_STATUS, {
       handler: () => updater.status(),
+    });
+
+    this.router.register(IPC.APP_VERSION, {
+      handler: () => ({
+        version: app.getVersion(),
+        isPackaged: app.isPackaged,
+      }),
     });
   }
 

@@ -24,6 +24,7 @@ const DEFAULT_STATE: AppState = {
   dndEnd: '08:00',
   launchAtLogin: false,
   sidebarCompact: false,
+  sidebarWidth: 240,
   windowState: { width: 1280, height: 820 },
 };
 
@@ -137,6 +138,13 @@ export class SettingsService implements Service {
   setSidebarCompact(enabled: boolean): void {
     if (this._state.sidebarCompact === enabled) return;
     this._state = { ...this._state, sidebarCompact: enabled };
+    this.queueWrite();
+  }
+
+  setSidebarWidth(width: number): void {
+    const clamped = Math.max(68, Math.min(600, Math.round(width)));
+    if (this._state.sidebarWidth === clamped) return;
+    this._state = { ...this._state, sidebarWidth: clamped };
     this.queueWrite();
   }
 

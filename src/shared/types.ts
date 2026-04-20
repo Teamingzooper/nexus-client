@@ -79,6 +79,7 @@ export const IPC = {
   NOTIFY_TEST: 'nexus:notify:test',
   PREFS_SET_LAUNCH_AT_LOGIN: 'nexus:prefs:set-launch-at-login',
   PREFS_SET_SIDEBAR_COMPACT: 'nexus:prefs:set-sidebar-compact',
+  PREFS_SET_SIDEBAR_WIDTH: 'nexus:prefs:set-sidebar-width',
   PROFILES_LIST: 'nexus:profiles:list',
   PROFILES_CURRENT: 'nexus:profiles:current',
   PROFILES_STATE: 'nexus:profiles:state',
@@ -91,4 +92,5 @@ export const IPC = {
   UPDATER_CHECK: 'nexus:updater:check',
   UPDATER_INSTALL: 'nexus:updater:install',
   UPDATER_STATUS: 'nexus:updater:status',
+  APP_VERSION: 'nexus:app:version',
 } as const;

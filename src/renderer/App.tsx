@@ -35,6 +35,10 @@ export function App() {
     init();
   }, [init]);
 
+  useEffect(() => {
+    document.documentElement.dataset.platform = window.nexus.platform;
+  }, []);
+
   // Native app menu dispatches. The main-process MenuService fires these via
   // nexus:menu IPC so items like "Settings…" and "New Instance…" in the
   // macOS menu bar route through the same store actions as the in-app UI.
