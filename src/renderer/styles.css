@@ -1973,3 +1973,121 @@ img.sidebar-logo.app-icon-img {
   font-size: 12px;
   color: var(--nx-badge);
 }
+
+/* ---------------- Nexus Mail — Email Peek panel ---------------- */
+
+.email-peek-panel {
+  border-top: 1px solid var(--nx-border);
+  padding: 6px 0;
+  font-size: 12px;
+  transition: opacity 0.15s ease;
+}
+
+.email-peek-panel[data-visible="hover"] {
+  opacity: 0;
+}
+
+.sidebar:hover .email-peek-panel[data-visible="hover"],
+.email-peek-panel[data-visible="hover"]:focus-within {
+  opacity: 1;
+}
+
+.email-peek-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 12px;
+  background: none;
+  border: none;
+  color: var(--nx-text-muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.email-peek-header:hover {
+  color: var(--nx-text);
+}
+
+.email-peek-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email-peek-vip-badge {
+  color: var(--nx-accent);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.email-peek-chevron {
+  color: var(--nx-text-muted);
+  font-size: 10px;
+}
+
+.email-peek-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.email-peek-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+  gap: 6px;
+  padding: 4px 12px;
+  cursor: pointer;
+  color: var(--nx-text-muted);
+  align-items: center;
+}
+
+.email-peek-row:hover {
+  background: var(--nx-sidebar-hover);
+  color: var(--nx-text);
+}
+
+.email-peek-row.is-unread {
+  font-weight: 600;
+  color: var(--nx-text);
+}
+
+.email-peek-row.is-vip {
+  color: var(--nx-accent);
+}
+
+.email-peek-from,
+.email-peek-subject {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.email-peek-subject {
+  color: var(--nx-text-muted);
+}
+
+.email-peek-row.is-unread .email-peek-subject {
+  color: var(--nx-text);
+}
+
+.email-peek-time {
+  font-size: 10px;
+  color: var(--nx-text-muted);
+  flex-shrink: 0;
+}
+
+.email-peek-empty {
+  padding: 8px 12px;
+  color: var(--nx-text-muted);
+  font-style: italic;
+}
+
+.sidebar.compact .email-peek-panel {
+  /* In compact mode the peek panel is too dense to be useful. Hide it. */
+  display: none;
+}
