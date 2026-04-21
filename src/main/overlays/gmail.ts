@@ -22,6 +22,10 @@ export function createGmailOverlay(): EmailOverlay {
           email: fromEl?.getAttribute('email') ?? '',
         };
 
+        // TODO: distinguish "to" from "cc" recipients. Gmail's DOM puts them in
+        // different DOM subtrees (.gD is always "to"; .g2.recipient can be either
+        // depending on the thread layout). For v1, all recipients are surfaced
+        // in `to[]` and `cc` remains empty. See plan issue list for follow-up.
         const to: EmailAddress[] = [];
         const cc: EmailAddress[] = [];
         document.querySelectorAll('span.gD[email], span.g2.recipient[email]').forEach((el) => {
@@ -34,11 +38,17 @@ export function createGmailOverlay(): EmailOverlay {
 
         const dateEl = document.querySelector('.g3.adh') as HTMLElement | null;
         const dateTitle = dateEl?.getAttribute('title') ?? dateEl?.textContent ?? '';
+        // TODO: if Date.parse fails, we fabricate "now" rather than null because
+        // EmailData.date is typed as non-nullable string. Future: either widen
+        // the type to allow null or abort extraction on date-parse failure.
         const parsed = Date.parse(dateTitle);
         const date = Number.isFinite(parsed) ? new Date(parsed).toISOString() : new Date().toISOString();
 
         const bodyEl = document.querySelector('.a3s.aiL') as HTMLElement | null;
         const bodyText = bodyEl?.textContent?.trim() ?? '';
+        // NOTE: bodyHtml is raw innerHTML — passed to the clipboard unsanitized.
+        // Gmail sanitizes its own rendered email HTML, but consumers of the JSON
+        // export (paste targets, scripts) should treat this as untrusted content.
         const bodyHtml = bodyEl?.innerHTML?.trim() ?? '';
 
         const labels: string[] = [];
@@ -173,6 +183,7 @@ function showSimpleMenu(x: number, y: number, items: Array<{ label: string; onCl
     entry.addEventListener('click', () => {
       it.onClick();
       menu.remove();
+      document.removeEventListener('click', dismiss, true);
     });
     menu.appendChild(entry);
   }
