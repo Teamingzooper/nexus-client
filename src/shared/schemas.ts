@@ -61,6 +61,7 @@ export const manifestSchema = z.object({
     })
     .optional(),
   notifications: notificationSchema.optional(),
+  emailProvider: z.enum(['gmail', 'outlook']).optional(),
 });
 
 const hexColor = z

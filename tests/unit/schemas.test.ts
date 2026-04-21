@@ -69,6 +69,26 @@ describe('manifestSchema', () => {
     const res = manifestSchema.safeParse({ ...valid, partition: 'transient' });
     expect(res.success).toBe(false);
   });
+
+  it('accepts a manifest with emailProvider "gmail"', () => {
+    const res = manifestSchema.safeParse({ ...valid, emailProvider: 'gmail' });
+    expect(res.success).toBe(true);
+  });
+
+  it('accepts a manifest with emailProvider "outlook"', () => {
+    const res = manifestSchema.safeParse({ ...valid, emailProvider: 'outlook' });
+    expect(res.success).toBe(true);
+  });
+
+  it('rejects unknown emailProvider values', () => {
+    const res = manifestSchema.safeParse({ ...valid, emailProvider: 'yahoo' });
+    expect(res.success).toBe(false);
+  });
+
+  it('accepts a manifest with no emailProvider (chat module)', () => {
+    const res = manifestSchema.safeParse(valid);
+    expect(res.success).toBe(true);
+  });
 });
 
 describe('themeSchema', () => {
