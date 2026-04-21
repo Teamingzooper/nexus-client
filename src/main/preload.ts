@@ -10,6 +10,9 @@ import type {
   ModuleInstance,
   ProfileSummary,
   PeekItem,
+  VipEntry,
+  HotkeyAction,
+  EmailPeekConfig,
 } from '../shared/types';
 
 // Detect whether we're running inside an email-provider WebContentsView. When
@@ -162,6 +165,36 @@ const api = {
     const listener = (_: unknown, payload: unknown) => cb(payload);
     ipcRenderer.on('nexus:updater:status', listener);
     return () => ipcRenderer.removeListener('nexus:updater:status', listener);
+  },
+
+  // Email mode
+  email: {
+    getPeek: (): Promise<Record<string, PeekItem[]>> => invoke(IPC.EMAIL_GET_PEEK),
+    onPeekChanged: (
+      cb: (data: { instanceId: string; items: PeekItem[] }) => void,
+    ): (() => void) => {
+      const listener = (_: unknown, payload: { instanceId: string; items: PeekItem[] }) =>
+        cb(payload);
+      ipcRenderer.on(IPC.EMAIL_PEEK_CHANGED, listener);
+      return () => ipcRenderer.removeListener(IPC.EMAIL_PEEK_CHANGED, listener);
+    },
+    listVips: (): Promise<VipEntry[]> => invoke(IPC.EMAIL_VIPS_LIST),
+    addVip: (entry: VipEntry): Promise<VipEntry[]> => invoke(IPC.EMAIL_VIPS_ADD, entry),
+    removeVip: (email: string): Promise<VipEntry[]> =>
+      invoke(IPC.EMAIL_VIPS_REMOVE, { email }),
+    setPeekConfig: (cfg: EmailPeekConfig): Promise<void> =>
+      invoke(IPC.EMAIL_SET_PEEK_CONFIG, cfg),
+  },
+
+  // Hotkeys
+  hotkeys: {
+    list: (): Promise<HotkeyAction[]> => invoke(IPC.HOTKEYS_LIST),
+    rebind: (
+      actionId: string,
+      binding: string | null,
+    ): Promise<{ ok: true } | { ok: false; conflictingActionId: string }> =>
+      invoke(IPC.HOTKEYS_REBIND, { actionId, binding }),
+    reset: (actionId: string): Promise<void> => invoke(IPC.HOTKEYS_RESET, { actionId }),
   },
 };
 
