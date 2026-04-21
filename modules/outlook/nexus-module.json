@@ -1,0 +1,16 @@
+{
+  "id": "outlook",
+  "name": "Outlook",
+  "version": "1.0.0",
+  "author": "nexus",
+  "description": "Outlook web with email-mode overlay (Copy-as-JSON, peek, VIPs).",
+  "url": "https://outlook.office.com/mail/",
+  "icon": "icon.svg",
+  "partition": "persist:outlook",
+  "emailProvider": "outlook",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "notifications": {
+    "kind": "title",
+    "pattern": "\\((\\d+)\\)"
+  }
+}
