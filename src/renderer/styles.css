@@ -2091,3 +2091,118 @@ img.sidebar-logo.app-icon-img {
   /* In compact mode the peek panel is too dense to be useful. Hide it. */
   display: none;
 }
+
+/* ---------------- Nexus Mail — Settings tabs ---------------- */
+
+.settings-tab.email-settings,
+.settings-tab.hotkeys-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 4px;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-section h3 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+  color: var(--nx-text);
+}
+
+.settings-hint {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: var(--nx-text-muted);
+}
+
+.settings-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.settings-field select,
+.settings-field input {
+  min-width: 180px;
+}
+
+.vip-table,
+.hotkey-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.vip-table th,
+.hotkey-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--nx-text-muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--nx-border);
+}
+
+.vip-table td,
+.hotkey-table td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--nx-border);
+  vertical-align: middle;
+}
+
+.vip-table input,
+.hotkey-capture {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+.vip-empty,
+.hotkey-empty {
+  text-align: center;
+  color: var(--nx-text-muted);
+  font-style: italic;
+  padding: 12px !important;
+}
+
+.vip-error,
+.hotkeys-status {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: var(--nx-accent);
+}
+
+.vip-remove {
+  color: var(--nx-badge);
+}
+
+.hotkey-label {
+  font-weight: 500;
+  color: var(--nx-text);
+}
+
+.hotkey-binding {
+  min-width: 140px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.hotkey-unbound {
+  color: var(--nx-text-muted);
+  font-style: italic;
+  font-family: inherit;
+}
+
+.hotkey-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
