@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNexus } from '../store';
+import { EmailPeekPanel } from './EmailPeekPanel';
 import type {
   DropTarget,
   SidebarGroup,
@@ -492,6 +493,8 @@ export function Sidebar() {
           );
         })}
       </div>
+
+      <EmailPeekPanel />
 
       <div className="sidebar-footer">
         <button

@@ -4,12 +4,14 @@ import { useOverlay } from '../hooks/useOverlay';
 import { ThemeEditor } from './ThemeEditor';
 import { UpdatesTab } from './UpdatesTab';
 import { CommunityModulesBrowser } from './CommunityModulesBrowser';
+import { EmailSettingsTab } from './EmailSettingsTab';
+import { HotkeysSettingsTab } from './HotkeysSettingsTab';
 
 interface Props {
   onClose: () => void;
 }
 
-type Tab = 'modules' | 'notifications' | 'themes' | 'general' | 'updates';
+type Tab = 'modules' | 'notifications' | 'themes' | 'general' | 'email' | 'hotkeys' | 'updates';
 
 export function SettingsPanel({ onClose }: Props) {
   const [tab, setTab] = useState<Tab>('modules');
@@ -134,6 +136,22 @@ export function SettingsPanel({ onClose }: Props) {
               onClick={() => setTab('general')}
             >
               General
+            </button>
+            <button
+              role="tab"
+              aria-selected={tab === 'email'}
+              className={tab === 'email' ? 'tab active' : 'tab'}
+              onClick={() => setTab('email')}
+            >
+              Email
+            </button>
+            <button
+              role="tab"
+              aria-selected={tab === 'hotkeys'}
+              className={tab === 'hotkeys' ? 'tab active' : 'tab'}
+              onClick={() => setTab('hotkeys')}
+            >
+              Hotkeys
             </button>
             <button
               role="tab"
@@ -330,6 +348,10 @@ export function SettingsPanel({ onClose }: Props) {
           )}
 
           {tab === 'themes' && <ThemeEditor />}
+
+          {tab === 'email' && <EmailSettingsTab />}
+
+          {tab === 'hotkeys' && <HotkeysSettingsTab />}
 
           {tab === 'updates' && <UpdatesTab />}
 
