@@ -58,11 +58,13 @@ Keyboard shortcuts: **⌘,** / **Ctrl+,** opens Settings, **⌘R** / **Ctrl+R** 
 - **Themes.** Pick a built-in theme or design your own in the in-app theme editor — no CSS required.
 - **Profiles.** Optional password-protected profiles let you keep separate sets of instances (e.g. a personal profile and a work profile) on the same machine.
 - **In-place updates.** When a new version ships, Nexus downloads it quietly in the background. Click **Install and restart** when it's ready — your logins and settings are preserved.
+- **Email mode (beta).** Gmail and Outlook get a structured Copy-as-JSON hotkey, a cross-account inbox peek in the sidebar, and VIP-sender notifications. See the [Email Mode guide](docs/EMAIL_MODE.md).
 
 ## Guides
 
 - [**Modules**](docs/MODULES.md) — add, organize, and (optionally) create your own messaging modules.
 - [**Themes**](docs/THEMES.md) — customize every color in the app.
+- [**Email Mode**](docs/EMAIL_MODE.md) — Gmail and Outlook power-user features (Copy-as-JSON, peek panel, VIP senders, rebindable hotkeys).
 
 ## Supported services (out of the box)
 
@@ -71,6 +73,8 @@ Keyboard shortcuts: **⌘,** / **Ctrl+,** opens Settings, **⌘R** / **Ctrl+R** 
 - Messenger
 - Instagram
 - Microsoft Teams
+- Gmail (email mode)
+- Outlook (email mode)
 
 More can be added as modules — see the [Modules guide](docs/MODULES.md).
 
