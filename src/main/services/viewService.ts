@@ -1,4 +1,4 @@
-import { WebContentsView, session } from 'electron';
+import { WebContentsView, session, type WebContents } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { Bounds, LoadedModule, ModuleInstance } from '../../shared/types';
@@ -65,6 +65,18 @@ export class ViewService implements Service {
    */
   destroyAll(): void {
     for (const id of [...this.views.keys()]) this.destroy(id);
+  }
+
+  /**
+   * Look up which instance owns a given WebContents. Used by IpcService
+   * to attribute fire-and-forget sends (peek updates, copy-as-json) from
+   * email-provider views back to the correct instance id.
+   */
+  getInstanceIdForWebContents(wc: WebContents): string | null {
+    for (const [id, mv] of this.views) {
+      if (mv.view.webContents === wc) return id;
+    }
+    return null;
   }
 
   setBounds(bounds: Bounds): void {

@@ -1,12 +1,14 @@
 import { z } from 'zod';
-import { app, dialog, BrowserWindow } from 'electron';
+import { app, dialog, BrowserWindow, ipcMain, type IpcMainEvent } from 'electron';
 import * as fs from 'fs/promises';
 import { IPC } from '../../shared/types';
 import {
   boundsSchema,
+  emailPeekConfigSchema,
   moduleIdSchema,
   themeIdSchema,
   themeSchema,
+  vipEntrySchema,
 } from '../../shared/schemas';
 import { sidebarLayoutSchema } from '../../shared/sidebarLayout';
 import { instanceIdSchema } from '../../shared/instance';
@@ -24,11 +26,19 @@ import type { NotificationService } from './notificationService';
 import type { UpdaterService } from './updaterService';
 import type { TrayService } from './trayService';
 import type { CommunityModulesService } from './communityModulesService';
+import type { EmailOverlayService } from './emailOverlayService';
+import type { PeekCacheService } from './peekCacheService';
+import type { HotkeyRegistryService } from './hotkeyRegistryService';
+import type { EmailData, PeekItem } from '../../shared/types';
 
 export class IpcService implements Service {
   readonly name = 'ipc';
   private router!: IpcRouter;
   private logger!: Logger;
+  /** Channels registered via `ipcMain.on` (one-way sends) — cleaned up on dispose. */
+  private rawChannels: string[] = [];
+  /** Teardown fns for other subscriptions (e.g. peek cache listeners). */
+  private teardowns: Array<() => void> = [];
 
   async init(ctx: ServiceContext): Promise<void> {
     this.logger = ctx.logger.child('ipc');
@@ -44,6 +54,9 @@ export class IpcService implements Service {
     const updater = ctx.container.get<UpdaterService>('updater');
     const tray = ctx.container.get<TrayService>('tray');
     const community = ctx.container.get<CommunityModulesService>('community-modules');
+    const emailSvc = ctx.container.get<EmailOverlayService>('emailOverlay');
+    const peekCache = ctx.container.get<PeekCacheService>('peekCache');
+    const hotkeys = ctx.container.get<HotkeyRegistryService>('hotkeys');
 
     this.router.register(IPC.MODULES_LIST, { handler: () => registry.list() });
 
@@ -458,9 +471,186 @@ export class IpcService implements Service {
         await community.install(moduleId, overwrite === true);
       },
     });
+
+    // ────────────────────────────────────────────── Nexus Mail handlers ──
+
+    // Fire-and-forget channels from the overlay preload (`ipcRenderer.send`).
+    // These use `ipcMain.on` directly because IpcRouter only supports the
+    // invoke/handle pattern.
+    const onCopyJson = (event: IpcMainEvent, payload: unknown): void => {
+      // `payload` is either a full EmailData (if an email is focused) or
+      // null (if extractFocusedEmail returned null). Validate only the
+      // non-null case; null is a legitimate "fallback needed" signal.
+      if (payload === null) return;
+      const parsed = z.object({
+        provider: z.enum(['gmail', 'outlook']),
+        account: z.string().max(256),
+        messageId: z.string().max(512).nullable(),
+        threadId: z.string().max(512).nullable(),
+        date: z.string().max(64),
+        from: z.object({ name: z.string().max(256), email: z.string().max(256) }),
+        to: z.array(z.object({ name: z.string().max(256), email: z.string().max(256) })).max(256),
+        cc: z.array(z.object({ name: z.string().max(256), email: z.string().max(256) })).max(256),
+        bcc: z.array(z.object({ name: z.string().max(256), email: z.string().max(256) })).max(256),
+        subject: z.string().max(1024),
+        bodyText: z.string().max(1_000_000),
+        bodyHtml: z.string().max(2_000_000),
+        labels: z.array(z.string().max(128)).max(64),
+        attachments: z
+          .array(z.object({ name: z.string().max(512), sizeBytes: z.number().nullable() }))
+          .max(64),
+      }).safeParse(payload);
+      if (!parsed.success) {
+        this.logger.warn('ipc email copyJson: invalid payload', parsed.error.flatten());
+        return;
+      }
+      try {
+        emailSvc.copyEmailAsJson(parsed.data as EmailData);
+      } catch (err) {
+        this.logger.warn('ipc email copyJson: service threw', err);
+      }
+    };
+    ipcMain.on(IPC.EMAIL_COPY_JSON, onCopyJson);
+    this.rawChannels.push(IPC.EMAIL_COPY_JSON);
+
+    const peekItemSchema = z.object({
+      messageId: z.string().max(512).nullable(),
+      threadId: z.string().max(512).nullable(),
+      from: z.object({ name: z.string().max(256), email: z.string().max(256) }),
+      subject: z.string().max(1024),
+      snippet: z.string().max(1024),
+      date: z.string().max(64),
+      unread: z.boolean(),
+      isVip: z.boolean(),
+    });
+
+    const onPeekUpdate = (event: IpcMainEvent, payload: unknown): void => {
+      const parsed = z.array(peekItemSchema).max(64).safeParse(payload);
+      if (!parsed.success) {
+        this.logger.warn('ipc email peek-update: invalid payload', parsed.error.flatten());
+        return;
+      }
+      // Attribute the send to an instance via the sender's WebContents.
+      const instanceId = views.getInstanceIdForWebContents(event.sender);
+      if (!instanceId) {
+        this.logger.debug('peek-update from unknown webContents; dropping');
+        return;
+      }
+      try {
+        peekCache.update(instanceId, parsed.data as PeekItem[]);
+      } catch (err) {
+        this.logger.warn('peekCache.update threw', err);
+      }
+    };
+    ipcMain.on(IPC.EMAIL_PEEK_UPDATE, onPeekUpdate);
+    this.rawChannels.push(IPC.EMAIL_PEEK_UPDATE);
+
+    // EMAIL_VIPS_ADD: used in two directions.
+    // - Preload/overlay sends `{ email }` via ipcRenderer.send after the
+    //   user picks "Mark as VIP" from the in-page context menu.
+    // - Renderer settings tab calls ipcRenderer.invoke with a full VipEntry
+    //   and expects the updated list back.
+    // Register BOTH an ipcMain.on listener (send path) and a router handler
+    // (invoke path). Both call the same service method.
+    const onVipsAddSend = (event: IpcMainEvent, payload: unknown): void => {
+      const parsed = vipEntrySchema.safeParse(payload);
+      if (!parsed.success) {
+        this.logger.warn('ipc email vips:add (send): invalid entry', parsed.error.flatten());
+        return;
+      }
+      try {
+        emailSvc.addVip(parsed.data);
+      } catch (err) {
+        this.logger.warn('emailSvc.addVip threw (send path)', err);
+      }
+    };
+    ipcMain.on(IPC.EMAIL_VIPS_ADD, onVipsAddSend);
+    this.rawChannels.push(IPC.EMAIL_VIPS_ADD);
+
+    this.router.register(IPC.EMAIL_VIPS_ADD, {
+      input: vipEntrySchema,
+      handler: (entry) => {
+        emailSvc.addVip(entry);
+        return emailSvc.listVips();
+      },
+    });
+
+    // Request/response channels.
+
+    this.router.register(IPC.EMAIL_GET_PEEK, {
+      handler: () => peekCache.getAll(),
+    });
+
+    this.router.register(IPC.EMAIL_VIPS_LIST, {
+      handler: () => emailSvc.listVips(),
+    });
+
+    this.router.register(IPC.EMAIL_VIPS_REMOVE, {
+      input: z.object({ email: z.string().max(256) }),
+      handler: ({ email }) => {
+        emailSvc.removeVip(email);
+        return emailSvc.listVips();
+      },
+    });
+
+    this.router.register(IPC.EMAIL_SET_PEEK_CONFIG, {
+      input: emailPeekConfigSchema,
+      handler: (cfg) => {
+        emailSvc.setPeekConfig(cfg);
+      },
+    });
+
+    this.router.register(IPC.HOTKEYS_LIST, {
+      handler: () => hotkeys.list(),
+    });
+
+    this.router.register(IPC.HOTKEYS_REBIND, {
+      input: z.object({
+        actionId: z.string().min(1).max(128),
+        binding: z.string().max(64).nullable(),
+      }),
+      handler: ({ actionId, binding }) => {
+        const res = hotkeys.rebind(actionId, binding);
+        if (!res.ok) {
+          // Surface conflict info to the renderer by throwing a tagged
+          // error — the router wraps it into { ok: false, error }.
+          const err = new Error(
+            `conflict:${res.conflictingActionId}`,
+          );
+          throw err;
+        }
+      },
+    });
+
+    this.router.register(IPC.HOTKEYS_RESET, {
+      input: z.object({ actionId: z.string().min(1).max(128) }),
+      handler: ({ actionId }) => {
+        hotkeys.reset(actionId);
+      },
+    });
+
+    // Push peek-cache changes to all renderer windows.
+    this.teardowns.push(
+      peekCache.onChange((instanceId, items) => {
+        for (const win of BrowserWindow.getAllWindows()) {
+          if (win.isDestroyed()) continue;
+          win.webContents.send(IPC.EMAIL_PEEK_CHANGED, { instanceId, items });
+        }
+      }),
+    );
   }
 
   dispose(): void {
     this.router.dispose();
+    for (const channel of this.rawChannels) ipcMain.removeAllListeners(channel);
+    this.rawChannels = [];
+    for (const fn of this.teardowns) {
+      try {
+        fn();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.teardowns = [];
   }
 }

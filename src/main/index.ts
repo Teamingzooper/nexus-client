@@ -14,6 +14,9 @@ import { MenuService } from './services/menuService';
 import { UpdaterService } from './services/updaterService';
 import { TrayService } from './services/trayService';
 import { CommunityModulesService } from './services/communityModulesService';
+import { HotkeyRegistryService } from './services/hotkeyRegistryService';
+import { EmailOverlayService } from './services/emailOverlayService';
+import { PeekCacheService } from './services/peekCacheService';
 import { IpcService } from './services/ipcService';
 import { DEFAULT_PROFILE_ID } from '../shared/profile';
 
@@ -66,15 +69,69 @@ async function bootstrap(): Promise<void> {
     .register(new ModuleRegistryService())
     .register(new ProfileService())
     .register(new WindowService())
+    // HotkeyRegistryService must be registered before ViewService — the
+    // per-view `before-input-event` handler resolves chords against it.
+    .register(new HotkeyRegistryService())
     .register(new ViewService())
     .register(new NotificationService())
     .register(new UpdaterService())
     .register(new TrayService())
     .register(new CommunityModulesService())
     .register(new MenuService())
+    // EmailOverlayService and PeekCacheService feed IpcService handlers, so
+    // they must be registered before it.
+    .register(new EmailOverlayService())
+    .register(new PeekCacheService())
+    // IpcService must be last — it reads from every other service.
     .register(new IpcService());
 
   await container.init();
+
+  // --- Nexus Mail bootstrap ---------------------------------------------
+  // Wire the persistence adapters for HotkeyRegistryService and
+  // EmailOverlayService now that SettingsService has loaded from disk.
+  const hotkeys = container.get<HotkeyRegistryService>('hotkeys');
+  const settingsForMail = container.get<SettingsService>('settings');
+  hotkeys.configure({
+    load: () => settingsForMail.state.hotkeys ?? {},
+    save: (bindings) => {
+      settingsForMail.update({ hotkeys: bindings });
+    },
+  });
+
+  // Default email hotkey action. Cmd+Shift+C on macOS, Ctrl+Shift+C elsewhere.
+  hotkeys.register({
+    id: 'email.copyAsJson',
+    label: 'Copy focused email as JSON',
+    defaultBinding: process.platform === 'darwin' ? 'Cmd+Shift+C' : 'Ctrl+Shift+C',
+  });
+
+  const emailSvc = container.get<EmailOverlayService>('emailOverlay');
+  emailSvc.configure({
+    loadVips: () => settingsForMail.state.email?.vips ?? [],
+    saveVips: (vips) => {
+      const email = { ...(settingsForMail.state.email ?? {}), vips };
+      settingsForMail.update({ email });
+    },
+    loadPeekConfig: () => settingsForMail.state.email?.peek,
+    savePeekConfig: (peek) => {
+      const email = { ...(settingsForMail.state.email ?? {}), peek };
+      settingsForMail.update({ email });
+    },
+    writeClipboard: (text) => {
+      // Late-require so tests that mock 'electron' in other modules can't
+      // accidentally pull clipboard into their module graph here.
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { clipboard } = require('electron');
+      clipboard.writeText(text);
+    },
+  });
+
+  // Bridge VIP list changes into the peek cache so `isVip` flags on cached
+  // peek items stay in sync whenever the VIP list is edited.
+  const peekCache = container.get<PeekCacheService>('peekCache');
+  peekCache.updateVipList(emailSvc.listVips());
+  emailSvc.onVipListChange((vips) => peekCache.updateVipList(vips));
 
   const windowService = container.get<WindowService>('window');
   const settings = container.get<SettingsService>('settings');
