@@ -100,15 +100,15 @@ export const IPC = {
   COMMUNITY_MODULES_LIST: 'nexus:community-modules:list',
   COMMUNITY_MODULES_INSTALL: 'nexus:community-modules:install',
   // Email mode
-  EMAIL_COPY_JSON: 'nexus:email:copyJson',
-  EMAIL_RUN_ACTION: 'nexus:email:runAction',
-  EMAIL_PEEK_UPDATE: 'nexus:email:peekUpdate',
-  EMAIL_GET_PEEK: 'nexus:email:getPeek',
-  EMAIL_PEEK_CHANGED: 'nexus:email:peekChanged',
+  EMAIL_COPY_JSON: 'nexus:email:copy-json',
+  EMAIL_RUN_ACTION: 'nexus:email:run-action',
+  EMAIL_PEEK_UPDATE: 'nexus:email:peek-update',
+  EMAIL_GET_PEEK: 'nexus:email:get-peek',
+  EMAIL_PEEK_CHANGED: 'nexus:email:peek-changed',
   EMAIL_VIPS_LIST: 'nexus:email:vips:list',
   EMAIL_VIPS_ADD: 'nexus:email:vips:add',
   EMAIL_VIPS_REMOVE: 'nexus:email:vips:remove',
-  EMAIL_SET_PEEK_CONFIG: 'nexus:email:setPeekConfig',
+  EMAIL_SET_PEEK_CONFIG: 'nexus:email:set-peek-config',
   // Hotkeys
   HOTKEYS_LIST: 'nexus:hotkeys:list',
   HOTKEYS_REBIND: 'nexus:hotkeys:rebind',
@@ -150,7 +150,7 @@ export interface PeekItem {
   from: EmailAddress;
   subject: string;
   snippet: string;
-  date: string;
+  date: string; // ISO 8601
   unread: boolean;
   isVip: boolean;
 }
@@ -162,10 +162,10 @@ export interface VipEntry {
 }
 
 export interface HotkeyAction {
-  id: string;
-  label: string;
+  id: string;                          // e.g. "email.copyAsJson"
+  label: string;                       // human-readable name
   description?: string;
-  defaultBinding: string | null;
+  defaultBinding: string | null;       // e.g. "Cmd+Shift+C"
   currentBinding: string | null;
 }
 
