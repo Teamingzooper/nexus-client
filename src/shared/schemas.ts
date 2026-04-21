@@ -114,6 +114,23 @@ export const moduleIdSchema = z
 
 export const themeIdSchema = moduleIdSchema;
 
+export const vipEntrySchema = z.object({
+  email: z.string().email().max(256),
+  label: z.string().max(64).optional(),
+  sound: z.string().max(64).optional(),
+});
+
+export const emailPeekConfigSchema = z.object({
+  visible: z.enum(['always', 'hover', 'hidden']),
+  perAccount: z.number().int().min(1).max(20),
+  grouping: z.enum(['by-account', 'unified']),
+});
+
+export const emailSettingsSchema = z.object({
+  vips: z.array(vipEntrySchema).max(256).optional(),
+  peek: emailPeekConfigSchema.optional(),
+});
+
 /**
  * Global app-wide state. Does NOT include instances, sidebar layout, or
  * active instance — those are per-profile and live in ProfileService.
@@ -147,4 +164,6 @@ export const appStateSchema = z.object({
       maximized: z.boolean().optional(),
     })
     .optional(),
+  email: emailSettingsSchema.optional(),
+  hotkeys: z.record(z.string(), z.string().max(64)).optional(),
 });

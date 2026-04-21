@@ -173,3 +173,57 @@ describe('appStateSchema', () => {
     expect(res.success).toBe(true);
   });
 });
+
+describe('appStateSchema email & hotkeys', () => {
+  const minimal = {
+    themeId: 'nexus-dark',
+    activeProfileId: null,
+  };
+
+  it('accepts settings without email or hotkeys sections', () => {
+    expect(appStateSchema.safeParse(minimal).success).toBe(true);
+  });
+
+  it('accepts a valid email section', () => {
+    const res = appStateSchema.safeParse({
+      ...minimal,
+      email: {
+        vips: [{ email: 'boss@corp.com', label: 'Boss', sound: 'glass' }],
+        peek: { visible: 'always', perAccount: 5, grouping: 'by-account' },
+      },
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it('rejects invalid peek.visible enum', () => {
+    const res = appStateSchema.safeParse({
+      ...minimal,
+      email: { peek: { visible: 'sometimes', perAccount: 5, grouping: 'by-account' } },
+    });
+    expect(res.success).toBe(false);
+  });
+
+  it('clamps peek.perAccount out of range by rejecting', () => {
+    const res = appStateSchema.safeParse({
+      ...minimal,
+      email: { peek: { visible: 'always', perAccount: 999, grouping: 'by-account' } },
+    });
+    expect(res.success).toBe(false);
+  });
+
+  it('accepts a hotkeys map', () => {
+    const res = appStateSchema.safeParse({
+      ...minimal,
+      hotkeys: { 'email.copyAsJson': 'Cmd+Shift+C' },
+    });
+    expect(res.success).toBe(true);
+  });
+
+  it('rejects non-string hotkey binding values', () => {
+    const res = appStateSchema.safeParse({
+      ...minimal,
+      hotkeys: { 'email.copyAsJson': 123 },
+    });
+    expect(res.success).toBe(false);
+  });
+});
