@@ -7,6 +7,10 @@ import type {
   SidebarLayout,
   ModuleInstance,
   ProfileSummary,
+  PeekItem,
+  VipEntry,
+  HotkeyAction,
+  EmailPeekConfig,
 } from '../shared/types';
 
 export interface UpdateInfo {
@@ -115,6 +119,26 @@ declare global {
         }[];
       }>;
       installCommunityModule(moduleId: string, overwrite?: boolean): Promise<void>;
+
+      // Nexus Mail
+      email: {
+        getPeek(): Promise<Record<string, PeekItem[]>>;
+        onPeekChanged(
+          cb: (data: { instanceId: string; items: PeekItem[] }) => void,
+        ): () => void;
+        listVips(): Promise<VipEntry[]>;
+        addVip(entry: VipEntry): Promise<VipEntry[]>;
+        removeVip(email: string): Promise<VipEntry[]>;
+        setPeekConfig(cfg: EmailPeekConfig): Promise<void>;
+      };
+      hotkeys: {
+        list(): Promise<HotkeyAction[]>;
+        rebind(
+          actionId: string,
+          binding: string | null,
+        ): Promise<{ ok: true } | { ok: false; conflictingActionId: string }>;
+        reset(actionId: string): Promise<void>;
+      };
     };
   }
 }

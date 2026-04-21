@@ -7,8 +7,18 @@ import type {
   ModuleInstance,
   ProfileSummary,
   ProfileState,
+  PeekItem,
+  VipEntry,
+  HotkeyAction,
+  EmailPeekConfig,
 } from '../shared/types';
 import { defaultLayout } from '../shared/sidebarLayout';
+
+const DEFAULT_PEEK_CONFIG: EmailPeekConfig = {
+  visible: 'always',
+  perAccount: 5,
+  grouping: 'by-account',
+};
 
 export interface ConfirmOptions {
   title: string;
@@ -55,6 +65,12 @@ interface NexusStore {
   profiles: ProfileSummary[];
   currentProfile: ProfileSummary | null;
   accountManagerOpen: boolean;
+
+  // Nexus Mail
+  emailPeek: Record<string, PeekItem[]>;
+  emailVips: VipEntry[];
+  emailPeekConfig: EmailPeekConfig;
+  hotkeys: HotkeyAction[];
 
   init(): Promise<void>;
   activateInstance(instanceId: string): Promise<void>;
@@ -125,6 +141,17 @@ interface NexusStore {
   // on unmount; a single App-level effect suspends views while count > 0.
   pushOverlay(): void;
   popOverlay(): void;
+
+  // Nexus Mail
+  initEmail(): Promise<void>;
+  addVip(entry: VipEntry): Promise<void>;
+  removeVip(email: string): Promise<void>;
+  setEmailPeekConfig(cfg: EmailPeekConfig): Promise<void>;
+  rebindHotkey(
+    actionId: string,
+    binding: string | null,
+  ): Promise<{ ok: true } | { ok: false; conflictingActionId: string }>;
+  resetHotkey(actionId: string): Promise<void>;
 }
 
 const EMPTY_PROFILE_STATE: ProfileState = {
@@ -184,6 +211,10 @@ export const useNexus = create<NexusStore>((set, get) => ({
   profiles: [],
   currentProfile: null,
   accountManagerOpen: false,
+  emailPeek: {},
+  emailVips: [],
+  emailPeekConfig: DEFAULT_PEEK_CONFIG,
+  hotkeys: [],
 
   async init() {
     try {
@@ -213,6 +244,11 @@ export const useNexus = create<NexusStore>((set, get) => ({
       window.nexus.onUnread((update) => {
         set((s) => ({ unread: { ...s.unread, [update.moduleId]: update.count } }));
       });
+
+      // Nexus Mail: load peek cache, VIP list, hotkeys, and peek config.
+      // Non-blocking — the UI can render before this resolves. Errors are
+      // logged but don't break the app.
+      void get().initEmail();
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err), ready: true });
     }
@@ -537,5 +573,61 @@ export const useNexus = create<NexusStore>((set, get) => ({
 
   popOverlay() {
     set((s) => ({ overlayCount: Math.max(0, s.overlayCount - 1) }));
+  },
+
+  // ─────────────────────────────────────────────────── Nexus Mail ──
+
+  async initEmail() {
+    try {
+      const [peek, vips, hotkeys] = await Promise.all([
+        window.nexus.email.getPeek(),
+        window.nexus.email.listVips(),
+        window.nexus.hotkeys.list(),
+      ]);
+      // Peek config is part of settings.email.peek, surfaced via getState();
+      // fall back to defaults when absent.
+      const s = get().state as AppState & { email?: { peek?: EmailPeekConfig } };
+      const emailPeekConfig = s.email?.peek ?? DEFAULT_PEEK_CONFIG;
+      set({ emailPeek: peek, emailVips: vips, hotkeys, emailPeekConfig });
+
+      // Subscribe to peek-change events from main. Returned unsubscribe is
+      // discarded — subscription lives for the lifetime of the renderer.
+      window.nexus.email.onPeekChanged(({ instanceId, items }) => {
+        set((st) => ({ emailPeek: { ...st.emailPeek, [instanceId]: items } }));
+      });
+    } catch (err) {
+      console.warn('initEmail failed', err);
+    }
+  },
+
+  async addVip(entry) {
+    const vips = await window.nexus.email.addVip(entry);
+    set({ emailVips: vips });
+  },
+
+  async removeVip(email) {
+    const vips = await window.nexus.email.removeVip(email);
+    set({ emailVips: vips });
+  },
+
+  async setEmailPeekConfig(cfg) {
+    // Optimistic update so the UI feels snappy.
+    set({ emailPeekConfig: cfg });
+    await window.nexus.email.setPeekConfig(cfg);
+  },
+
+  async rebindHotkey(actionId, binding) {
+    const res = await window.nexus.hotkeys.rebind(actionId, binding);
+    // Refresh the full list regardless of success — reset any stale
+    // currentBinding values even on conflict.
+    const hotkeys = await window.nexus.hotkeys.list();
+    set({ hotkeys });
+    return res;
+  },
+
+  async resetHotkey(actionId) {
+    await window.nexus.hotkeys.reset(actionId);
+    const hotkeys = await window.nexus.hotkeys.list();
+    set({ hotkeys });
   },
 }));
