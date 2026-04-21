@@ -9,7 +9,18 @@ import type {
   SidebarLayout,
   ModuleInstance,
   ProfileSummary,
+  PeekItem,
 } from '../shared/types';
+
+// Detect whether we're running inside an email-provider WebContentsView. When
+// set, we skip exposing `window.nexus` (which would leak the full shell IPC
+// surface into Gmail/Outlook) and instead boot the email overlay wiring
+// described at the bottom of this file.
+const EMAIL_PROVIDER_ARG_PREFIX = '--nexus-email-provider=';
+const emailProviderArg = process.argv.find((a) => a.startsWith(EMAIL_PROVIDER_ARG_PREFIX));
+const emailProvider = emailProviderArg
+  ? (emailProviderArg.slice(EMAIL_PROVIDER_ARG_PREFIX.length) as 'gmail' | 'outlook')
+  : null;
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string; details?: unknown };
 
@@ -154,6 +165,71 @@ const api = {
   },
 };
 
-contextBridge.exposeInMainWorld('nexus', api);
+// Only expose the shell IPC surface on the Nexus window itself, not on
+// email-provider WebContentsViews (Gmail/Outlook). The email bootstrap below
+// handles the overlay wiring for those.
+if (!emailProvider) {
+  contextBridge.exposeInMainWorld('nexus', api);
+}
 
 export type NexusApi = typeof api;
+
+// --- Email overlay bootstrap -------------------------------------------------
+//
+// Runs only when this preload is installed on an email-provider WebContentsView
+// (as a session preload by ViewService). Gated on the `--nexus-email-provider=…`
+// additionalArgument so it's a no-op in every other context. Uses CommonJS
+// `require` because the main-process tsconfig compiles to CJS and the preload
+// needs synchronous access to the overlay factories without pulling a bundler
+// into the equation.
+if (emailProvider) {
+  // Dynamic require keeps these out of the shell bundle's cold path.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createGmailOverlay } = require('./overlays/gmail') as typeof import('./overlays/gmail');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createOutlookOverlay } = require('./overlays/outlook') as typeof import('./overlays/outlook');
+
+  const overlay =
+    emailProvider === 'gmail' ? createGmailOverlay() : createOutlookOverlay();
+
+  ipcRenderer.on(IPC.EMAIL_RUN_ACTION, (_evt, actionId: string) => {
+    if (actionId === 'email.copyAsJson') {
+      const data = overlay.extractFocusedEmail();
+      ipcRenderer.send(IPC.EMAIL_COPY_JSON, data); // EmailData | null
+    }
+  });
+
+  // Peek scraping: observer for immediate updates, 60s poll as a safety net in
+  // case the observer misses a mutation, and a post-load priming nudge.
+  let lastItems: string | null = null;
+  const pushPeek = (): void => {
+    const items: PeekItem[] = overlay.scrapeInboxPeek(20);
+    const str = JSON.stringify(items);
+    if (str === lastItems) return;
+    lastItems = str;
+    ipcRenderer.send(IPC.EMAIL_PEEK_UPDATE, items);
+  };
+  const disposeObserver = overlay.observeInbox(() => {
+    pushPeek();
+  });
+  const pollId = setInterval(() => {
+    pushPeek();
+  }, 60_000);
+  window.addEventListener('load', () => {
+    setTimeout(() => {
+      pushPeek();
+    }, 2000);
+  });
+
+  // VIP context menu: overlay injects a right-click item on sender nodes; we
+  // forward marks to the main process.
+  const disposeMenu = overlay.injectVipContextMenu((email) => {
+    ipcRenderer.send(IPC.EMAIL_VIPS_ADD, { email });
+  });
+
+  window.addEventListener('unload', () => {
+    disposeObserver();
+    disposeMenu();
+    clearInterval(pollId);
+  });
+}

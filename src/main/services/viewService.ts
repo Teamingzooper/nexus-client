@@ -8,10 +8,14 @@ import type { Logger } from '../core/logger';
 import type { ModuleRegistryService } from './moduleRegistryService';
 import type { WindowService } from './windowService';
 import type { ProfileService } from './profileService';
+import type { HotkeyRegistryService } from './hotkeyRegistryService';
 import { DefaultStrategyFactory } from './notifications/strategies';
 import type { NotificationStrategy, StrategyFactory } from './notifications/strategy';
 import { mainWorldNotificationShim } from './notifications/mainWorldShim';
 import { hardenSession, installNavigationGuard, resolveModuleFile } from '../core/security';
+import type { EmailOverlay } from '../overlays/types';
+import { createGmailOverlay } from '../overlays/gmail';
+import { createOutlookOverlay } from '../overlays/outlook';
 
 interface ManagedView {
   instanceId: string;
@@ -30,6 +34,13 @@ export class ViewService implements Service {
   private windowService!: WindowService;
   private profiles!: ProfileService;
   private views = new Map<string, ManagedView>();
+  /**
+   * For views backing an email-provider module, we keep a reference to the
+   * overlay implementation so the main process has a way to reach it for
+   * provider-scoped work (teardown bookkeeping, future IPC handlers). The
+   * overlay methods themselves run inside the WebContentsView via the preload.
+   */
+  private overlays = new Map<string, EmailOverlay>();
   private activeId: string | null = null;
   private bounds: Bounds = { x: 220, y: 40, width: 800, height: 600 };
   private suspended = false;
@@ -136,6 +147,7 @@ export class ViewService implements Service {
       // ignore
     }
     this.views.delete(instanceId);
+    this.overlays.delete(instanceId);
     if (this.activeId === instanceId) this.activeId = null;
     this.ctx.bus.emit('view:destroyed', { instanceId });
   }
@@ -202,7 +214,17 @@ export class ViewService implements Service {
     // calls from the page are forwarded to the main process. Must be set before
     // the first loadURL so the very first frame picks it up.
     const notifyPreloadPath = path.join(__dirname, '..', 'notifyPreload.js');
-    ses.setPreloads([...ses.getPreloads(), notifyPreloadPath]);
+    const sessionPreloads = [...ses.getPreloads(), notifyPreloadPath];
+
+    // Email-provider modules get the Nexus preload added as a session preload
+    // so the `--nexus-email-provider=…` additionalArgument picks up the overlay
+    // bootstrap at the bottom of preload.ts. The shell-API contextBridge block
+    // there is itself guarded on the arg so it does not leak `window.nexus`
+    // into Gmail/Outlook pages.
+    if (manifest.emailProvider) {
+      sessionPreloads.push(path.join(__dirname, '..', 'preload.js'));
+    }
+    ses.setPreloads(sessionPreloads);
 
     let preloadAbs: string | undefined;
     if (manifest.inject?.preload) {
@@ -210,6 +232,10 @@ export class ViewService implements Service {
       if (p) preloadAbs = p;
       else this.logger.warn(`preload rejected for ${manifest.id}: escapes module dir`);
     }
+
+    const additionalArguments = manifest.emailProvider
+      ? [`--nexus-email-provider=${manifest.emailProvider}`]
+      : [];
 
     const view = new WebContentsView({
       webPreferences: {
@@ -221,8 +247,38 @@ export class ViewService implements Service {
         webSecurity: true,
         spellcheck: true,
         devTools: this.ctx.isDev,
+        additionalArguments,
       },
     });
+
+    // Overlay setup for email-provider modules. The factory itself is pure
+    // (just returns method bag — no DOM access at construction time) so it's
+    // safe to instantiate in the main process. Methods that query the DOM
+    // only run inside the WebContentsView via preload.ts.
+    if (manifest.emailProvider) {
+      const overlay =
+        manifest.emailProvider === 'gmail' ? createGmailOverlay() : createOutlookOverlay();
+      this.overlays.set(instance.id, overlay);
+
+      view.webContents.on('before-input-event', (event, input) => {
+        if (input.type !== 'keyDown') return;
+        const chord = chordFromInput(input);
+        if (!chord) return;
+        // Hotkey lookups are cheap (string compare over a handful of entries)
+        // and done per-keystroke, so resolve lazily from the container each time.
+        let actionId: string | null = null;
+        try {
+          const hotkeys = this.ctx.container.get<HotkeyRegistryService>('hotkeys');
+          actionId = hotkeys.resolveChord(chord);
+        } catch {
+          // HotkeyRegistryService not registered — nothing to do.
+          return;
+        }
+        if (!actionId) return;
+        event.preventDefault();
+        view.webContents.send('nexus:email:run-action', actionId);
+      });
+    }
 
     if (manifest.userAgent) {
       view.webContents.setUserAgent(manifest.userAgent);
@@ -356,4 +412,38 @@ export class ViewService implements Service {
 
 function boundsEqual(a: Bounds, b: Bounds): boolean {
   return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+}
+
+/**
+ * Translate an Electron `before-input-event` input into the Accelerator-style
+ * chord string used by HotkeyRegistryService (e.g. "Ctrl+Shift+J"). Returns
+ * null for plain printable characters (we don't want to intercept typing) and
+ * for events we can't translate.
+ */
+function chordFromInput(input: Electron.Input): string | null {
+  if (input.type !== 'keyDown') return null;
+  const mods: string[] = [];
+  if (input.control) mods.push('Ctrl');
+  if (input.meta) mods.push('Cmd');
+  if (input.alt) mods.push('Alt');
+  if (input.shift) mods.push('Shift');
+  const key = normalizeKey(input.key);
+  if (!key) return null;
+  // A bare printable key with no modifiers is normal typing — do not hijack.
+  if (mods.length === 0 && key.length === 1) return null;
+  return [...mods, key].join('+');
+}
+
+function normalizeKey(key: string): string | null {
+  if (!key) return null;
+  if (key.length === 1) return key.toUpperCase();
+  const map: Record<string, string> = {
+    ArrowUp: 'Up',
+    ArrowDown: 'Down',
+    ArrowLeft: 'Left',
+    ArrowRight: 'Right',
+    Escape: 'Esc',
+    ' ': 'Space',
+  };
+  return map[key] ?? key;
 }
