@@ -586,7 +586,7 @@ export class IpcService implements Service {
     });
 
     this.router.register(IPC.EMAIL_VIPS_REMOVE, {
-      input: z.object({ email: z.string().max(256) }),
+      input: z.object({ email: z.string().email().max(256) }),
       handler: ({ email }) => {
         emailSvc.removeVip(email);
         return emailSvc.listVips();
@@ -609,17 +609,10 @@ export class IpcService implements Service {
         actionId: z.string().min(1).max(128),
         binding: z.string().max(64).nullable(),
       }),
-      handler: ({ actionId, binding }) => {
-        const res = hotkeys.rebind(actionId, binding);
-        if (!res.ok) {
-          // Surface conflict info to the renderer by throwing a tagged
-          // error — the router wraps it into { ok: false, error }.
-          const err = new Error(
-            `conflict:${res.conflictingActionId}`,
-          );
-          throw err;
-        }
-      },
+      // Conflicts are a domain outcome, not an exception — return the
+      // structured RebindResult as the success payload so the renderer
+      // reads `result.data.ok` and, on conflict, `result.data.conflictingActionId`.
+      handler: ({ actionId, binding }) => hotkeys.rebind(actionId, binding),
     });
 
     this.router.register(IPC.HOTKEYS_RESET, {
@@ -629,12 +622,14 @@ export class IpcService implements Service {
       },
     });
 
-    // Push peek-cache changes to all renderer windows.
+    // Push peek-cache changes to the main renderer window only. Broadcasting
+    // to all BrowserWindows would leak VIP-flagged sender/subject data to
+    // auxiliary windows (OAuth popups, undocked devtools, etc.).
     this.teardowns.push(
       peekCache.onChange((instanceId, items) => {
-        for (const win of BrowserWindow.getAllWindows()) {
-          if (win.isDestroyed()) continue;
-          win.webContents.send(IPC.EMAIL_PEEK_CHANGED, { instanceId, items });
+        const main = windowSvc.getWindow();
+        if (main && !main.isDestroyed()) {
+          main.webContents.send(IPC.EMAIL_PEEK_CHANGED, { instanceId, items });
         }
       }),
     );
@@ -642,6 +637,9 @@ export class IpcService implements Service {
 
   dispose(): void {
     this.router.dispose();
+    // removeAllListeners only affects `ipcMain.on` listeners; the `handle`
+    // registrations on these same channels (e.g. EMAIL_VIPS_ADD) are
+    // already removed by router.dispose() above.
     for (const channel of this.rawChannels) ipcMain.removeAllListeners(channel);
     this.rawChannels = [];
     for (const fn of this.teardowns) {
