@@ -8,6 +8,9 @@ import type { WindowService } from './windowService';
 import type { SettingsService } from './settingsService';
 import type { ProfileService } from './profileService';
 import type { ViewService } from './viewService';
+import type { EmailOverlayService } from './emailOverlayService';
+import type { ModuleRegistryService } from './moduleRegistryService';
+import { matchVip } from '../email/vipMatcher';
 
 /**
  * Format the title/body pair we show in the native OS notification.
@@ -92,9 +95,11 @@ export class NotificationService implements Service {
   private settings!: SettingsService;
   private profiles!: ProfileService;
   private views!: ViewService;
+  private ctx!: ServiceContext;
   private unsubscribe: (() => void)[] = [];
 
   async init(ctx: ServiceContext): Promise<void> {
+    this.ctx = ctx;
     this.logger = ctx.logger.child('notifications');
     this.windowService = ctx.container.get<WindowService>('window');
     this.settings = ctx.container.get<SettingsService>('settings');
@@ -250,8 +255,20 @@ export class NotificationService implements Service {
    * service view. Gated on:
    *   - global settings.notificationsEnabled (default true)
    *   - Electron Notification.isSupported() for the current platform
+   *
+   * `senderEmail` is optional and currently only supplied by the email
+   * overlay pipeline (v2 work). When present and the originating module
+   * is an email provider, the title is prefixed with a star marker for
+   * VIP senders. Existing callers don't pass it, so the hook is a no-op
+   * for chat modules / the test suite.
    */
-  private showNative(instanceId: string, title: string, body: string, _tag?: string): void {
+  private showNative(
+    instanceId: string,
+    title: string,
+    body: string,
+    _tag?: string,
+    senderEmail?: string,
+  ): void {
     this.logger.debug(`native notification from ${instanceId}: ${title} / ${body}`);
     if (this.settings.state.notificationsEnabled === false) {
       this.logger.debug('notifications disabled in settings — suppressing');
@@ -282,9 +299,36 @@ export class NotificationService implements Service {
       privacyMode: this.settings.state.notificationPrivacyMode === true,
     });
 
+    // --- VIP differentiation for email modules ---
+    // Only kicks in when the notification carries a sender email AND the
+    // originating module has `emailProvider` set on its manifest AND the
+    // sender matches a VIP entry. Graceful fall-through on any error so a
+    // broken VIP lookup never blocks a real notification.
+    let displayTitle = nTitle;
+    // overrideSound available for future per-VIP sound support — the
+    // existing code only toggles `silent`, so we don't wire sound here.
+    let overrideSound: string | undefined = undefined;
+    try {
+      const container = this.ctx?.container;
+      const emailSvc =
+        container && container.has('emailOverlay')
+          ? container.get<EmailOverlayService>('emailOverlay')
+          : null;
+      if (emailSvc && senderEmail && this.isEmailModule(instance.moduleId)) {
+        const vip = matchVip(emailSvc.listVips(), senderEmail);
+        if (vip) {
+          displayTitle = `⭐ ${displayTitle}`;
+          overrideSound = vip.sound ?? 'glass';
+        }
+      }
+    } catch {
+      // Graceful degradation: fall through to standard notification behaviour.
+    }
+    void overrideSound;
+
     try {
       const notif = new ElectronNotification({
-        title: nTitle,
+        title: displayTitle,
         body: nBody,
         icon: resolveIconPath(),
         silent: this.settings.state.notificationSound === false,
@@ -306,6 +350,27 @@ export class NotificationService implements Service {
       notif.show();
     } catch (err) {
       this.logger.warn('failed to show native notification', err);
+    }
+  }
+
+  /**
+   * Returns true iff the given moduleId refers to a loaded module whose
+   * manifest has `emailProvider` set (i.e. 'gmail' or 'outlook'). Used to
+   * gate the VIP title-prefix hook so chat modules are unaffected.
+   *
+   * Looks up ModuleRegistryService via the container so we don't take a
+   * hard dependency on it at init time (tests that don't register the
+   * `modules` service still work — the method just returns false).
+   */
+  private isEmailModule(moduleId: string): boolean {
+    try {
+      const container = this.ctx?.container;
+      if (!container || !container.has('modules')) return false;
+      const modules = container.get<ModuleRegistryService>('modules');
+      const loaded = modules.get(moduleId);
+      return Boolean(loaded?.manifest.emailProvider);
+    } catch {
+      return false;
     }
   }
 }
