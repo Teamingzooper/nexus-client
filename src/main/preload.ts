@@ -182,6 +182,13 @@ export type NexusApi = typeof api;
 // `require` because the main-process tsconfig compiles to CJS and the preload
 // needs synchronous access to the overlay factories without pulling a bundler
 // into the equation.
+// Defense in depth: the Zod manifest validator should already prevent
+// unknown providers, but reject here rather than silently fall into the
+// Outlook branch of the bootstrap below.
+if (emailProvider && emailProvider !== 'gmail' && emailProvider !== 'outlook') {
+  throw new Error(`unknown email provider: ${emailProvider as string}`);
+}
+
 if (emailProvider) {
   // Dynamic require keeps these out of the shell bundle's cold path.
   // eslint-disable-next-line @typescript-eslint/no-require-imports

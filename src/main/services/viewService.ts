@@ -262,6 +262,7 @@ export class ViewService implements Service {
 
       view.webContents.on('before-input-event', (event, input) => {
         if (input.type !== 'keyDown') return;
+        if (input.isAutoRepeat) return;
         const chord = chordFromInput(input);
         if (!chord) return;
         // Hotkey lookups are cheap (string compare over a handful of entries)
