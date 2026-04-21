@@ -99,4 +99,81 @@ export const IPC = {
   APP_VERSION: 'nexus:app:version',
   COMMUNITY_MODULES_LIST: 'nexus:community-modules:list',
   COMMUNITY_MODULES_INSTALL: 'nexus:community-modules:install',
+  // Email mode
+  EMAIL_COPY_JSON: 'nexus:email:copyJson',
+  EMAIL_RUN_ACTION: 'nexus:email:runAction',
+  EMAIL_PEEK_UPDATE: 'nexus:email:peekUpdate',
+  EMAIL_GET_PEEK: 'nexus:email:getPeek',
+  EMAIL_PEEK_CHANGED: 'nexus:email:peekChanged',
+  EMAIL_VIPS_LIST: 'nexus:email:vips:list',
+  EMAIL_VIPS_ADD: 'nexus:email:vips:add',
+  EMAIL_VIPS_REMOVE: 'nexus:email:vips:remove',
+  EMAIL_SET_PEEK_CONFIG: 'nexus:email:setPeekConfig',
+  // Hotkeys
+  HOTKEYS_LIST: 'nexus:hotkeys:list',
+  HOTKEYS_REBIND: 'nexus:hotkeys:rebind',
+  HOTKEYS_RESET: 'nexus:hotkeys:reset',
 } as const;
+
+// ----- Email mode types -----
+
+export interface EmailAddress {
+  name: string;
+  email: string;
+}
+
+export interface EmailAttachment {
+  name: string;
+  sizeBytes: number | null;
+}
+
+export interface EmailData {
+  provider: 'gmail' | 'outlook';
+  account: string;
+  messageId: string | null;
+  threadId: string | null;
+  date: string; // ISO 8601
+  from: EmailAddress;
+  to: EmailAddress[];
+  cc: EmailAddress[];
+  bcc: EmailAddress[];
+  subject: string;
+  bodyText: string;
+  bodyHtml: string;
+  labels: string[];
+  attachments: EmailAttachment[];
+}
+
+export interface PeekItem {
+  messageId: string | null;
+  threadId: string | null;
+  from: EmailAddress;
+  subject: string;
+  snippet: string;
+  date: string;
+  unread: boolean;
+  isVip: boolean;
+}
+
+export interface VipEntry {
+  email: string;
+  label?: string;
+  sound?: string;
+}
+
+export interface HotkeyAction {
+  id: string;
+  label: string;
+  description?: string;
+  defaultBinding: string | null;
+  currentBinding: string | null;
+}
+
+export type EmailPeekVisibility = 'always' | 'hover' | 'hidden';
+export type EmailPeekGrouping = 'by-account' | 'unified';
+
+export interface EmailPeekConfig {
+  visible: EmailPeekVisibility;
+  perAccount: number;
+  grouping: EmailPeekGrouping;
+}
