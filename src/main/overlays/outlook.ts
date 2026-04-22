@@ -140,7 +140,9 @@ export function createOutlookOverlay(): EmailOverlay {
 
 function extractAccount(): string {
   const titleMatch = document.title.match(/([\w.+-]+@[\w-]+\.[\w.-]+)/);
-  return titleMatch ? titleMatch[1] : 'unknown@outlook';
+  // Return empty string rather than a fabricated-but-plausible address so
+  // downstream consumers of the JSON export can detect the failure.
+  return titleMatch ? titleMatch[1] : '';
 }
 
 function showSimpleMenu(x: number, y: number, items: Array<{ label: string; onClick: () => void }>): void {

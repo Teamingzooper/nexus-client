@@ -1,6 +1,7 @@
 import { WebContentsView, session, type WebContents } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { IPC } from '../../shared/types';
 import type { Bounds, LoadedModule, ModuleInstance } from '../../shared/types';
 import { partitionForInstance } from '../../shared/instance';
 import type { Service, ServiceContext } from '../core/service';
@@ -9,6 +10,7 @@ import type { ModuleRegistryService } from './moduleRegistryService';
 import type { WindowService } from './windowService';
 import type { ProfileService } from './profileService';
 import type { HotkeyRegistryService } from './hotkeyRegistryService';
+import type { SettingsService } from './settingsService';
 import { DefaultStrategyFactory } from './notifications/strategies';
 import type { NotificationStrategy, StrategyFactory } from './notifications/strategy';
 import { mainWorldNotificationShim } from './notifications/mainWorldShim';
@@ -211,8 +213,28 @@ export class ViewService implements Service {
     if (mv) mv.view.webContents.reload();
   }
 
+  /**
+   * Resolves the effective email-mode provider for a manifest, honoring the
+   * `features.emailMode` kill-switch in settings. Returns `undefined` when
+   * the manifest doesn't declare an emailProvider OR when email mode is
+   * disabled in settings. Downstream code can branch on this one value to
+   * decide whether to run any overlay behaviour at all.
+   */
+  private effectiveEmailProvider(manifest: LoadedModule['manifest']): 'gmail' | 'outlook' | undefined {
+    if (!manifest.emailProvider) return undefined;
+    try {
+      const settings = this.ctx.container.get<SettingsService>('settings');
+      // Default to enabled; only disable when the flag is explicitly false.
+      if (settings.state.features?.emailMode === false) return undefined;
+    } catch {
+      // SettingsService not registered (tests) — default to enabled.
+    }
+    return manifest.emailProvider;
+  }
+
   private create(instance: ModuleInstance, mod: LoadedModule): ManagedView {
     const manifest = mod.manifest;
+    const emailProvider = this.effectiveEmailProvider(manifest);
     // Prefer the instance's explicit partition (set by ProfileService when
     // creating profile-scoped instances). Fall back to the legacy unnamespaced
     // form for instances that predate profiles.
@@ -233,7 +255,7 @@ export class ViewService implements Service {
     // bootstrap at the bottom of preload.ts. The shell-API contextBridge block
     // there is itself guarded on the arg so it does not leak `window.nexus`
     // into Gmail/Outlook pages.
-    if (manifest.emailProvider) {
+    if (emailProvider) {
       sessionPreloads.push(path.join(__dirname, '..', 'preload.js'));
     }
     ses.setPreloads(sessionPreloads);
@@ -245,8 +267,8 @@ export class ViewService implements Service {
       else this.logger.warn(`preload rejected for ${manifest.id}: escapes module dir`);
     }
 
-    const additionalArguments = manifest.emailProvider
-      ? [`--nexus-email-provider=${manifest.emailProvider}`]
+    const additionalArguments = emailProvider
+      ? [`--nexus-email-provider=${emailProvider}`]
       : [];
 
     const view = new WebContentsView({
@@ -267,9 +289,8 @@ export class ViewService implements Service {
     // (just returns method bag — no DOM access at construction time) so it's
     // safe to instantiate in the main process. Methods that query the DOM
     // only run inside the WebContentsView via preload.ts.
-    if (manifest.emailProvider) {
-      const overlay =
-        manifest.emailProvider === 'gmail' ? createGmailOverlay() : createOutlookOverlay();
+    if (emailProvider) {
+      const overlay = emailProvider === 'gmail' ? createGmailOverlay() : createOutlookOverlay();
       this.overlays.set(instance.id, overlay);
 
       view.webContents.on('before-input-event', (event, input) => {
@@ -289,7 +310,7 @@ export class ViewService implements Service {
         }
         if (!actionId) return;
         event.preventDefault();
-        view.webContents.send('nexus:email:run-action', actionId);
+        view.webContents.send(IPC.EMAIL_RUN_ACTION, actionId);
       });
     }
 

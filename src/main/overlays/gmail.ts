@@ -163,7 +163,9 @@ function extractAccount(): string {
   const match = chip?.getAttribute('aria-label')?.match(/[\w.+-]+@[\w-]+\.[\w.-]+/);
   if (match) return match[0];
   const t = document.title.match(/([\w.+-]+@[\w-]+\.[\w.-]+)/);
-  return t ? t[1] : 'unknown@gmail';
+  // Return empty string rather than a fabricated-but-plausible address so
+  // downstream consumers of the JSON export can detect the failure.
+  return t ? t[1] : '';
 }
 
 function showSimpleMenu(x: number, y: number, items: Array<{ label: string; onClick: () => void }>): void {

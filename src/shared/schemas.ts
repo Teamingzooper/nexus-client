@@ -166,4 +166,14 @@ export const appStateSchema = z.object({
     .optional(),
   email: emailSettingsSchema.optional(),
   hotkeys: z.record(z.string(), z.string().max(64)).optional(),
+  features: z
+    .object({
+      // Kill-switch for the email-mode overlay. Defaults to true; set to false
+      // to revert Gmail/Outlook modules to plain web-portal behaviour (no
+      // overlay, no hotkey routing, no peek scraping). Exists so a provider
+      // DOM change that somehow throws around the overlay's try/catch layers
+      // can be disabled in the field without a new release.
+      emailMode: z.boolean().optional(),
+    })
+    .optional(),
 });

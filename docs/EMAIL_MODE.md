@@ -5,9 +5,10 @@ Nexus v1.4 adds first-class email support for **Gmail** and **Outlook (Office 36
 ## What's included
 
 - **Copy focused email as JSON** — press `Cmd+Shift+C` (macOS) / `Ctrl+Shift+C` (Windows / Linux) while reading an email. Your clipboard gets a structured JSON payload with sender, all recipients, subject, date, body (text + HTML), labels, and attachment metadata. Ideal for pasting into scripts, Notion, Obsidian, task trackers, or LLM chats.
-- **Sidebar email peek** — a collapsible panel in the sidebar shows the latest messages from every email account in one place. Unread rows are bold; VIP rows are highlighted. Click a row to jump to that account's inbox.
-- **VIP senders** — right-click a sender's name/email inside an email view and choose "⭐ Mark as VIP." VIPs get a ⭐ prefix in system notifications, an optional custom notification sound, and a dedicated unread counter in the peek panel header.
+- **Sidebar email peek** — a collapsible panel in the sidebar shows the latest messages from every email account in one place. Unread rows are bold; VIP rows are highlighted with a ⭐. Click a row to jump to that account's inbox.
+- **VIP senders** — right-click a sender's name/email inside an email view and choose "⭐ Mark as VIP." VIPs appear with a ⭐ prefix and a dedicated unread counter in the peek panel. (Notification-level VIP prefixing and custom per-VIP sounds are scaffolded for v2 — see "Known limitations" below.)
 - **Rebindable hotkeys** — every registered action (currently just `email.copyAsJson`, with more to come) appears in **Settings → Hotkeys** with click-to-rebind and conflict detection.
+- **Kill-switch** — if a Gmail or Outlook redesign ever bricks the overlay, set `features.emailMode` to `false` in the Nexus app-state file to fall back to plain web-portal behaviour without uninstalling or downgrading.
 
 ## Add an email account
 
@@ -43,7 +44,17 @@ Pressing the Copy-as-JSON hotkey while focused on an email writes a payload of t
 ## Managing VIPs
 
 - **Context menu:** in any Gmail or Outlook view, right-click a sender name or address. The in-page menu offers "⭐ Mark as VIP." The sender is added with just the email; you can edit the label/sound later in settings.
-- **Settings → Email → VIP senders:** add, edit, or remove VIP entries. Each has optional `label` (shown in listings) and `sound` (custom notification sound — macOS only; other platforms ignore the field today).
+- **Settings → Email → VIP senders:** add, edit, or remove VIP entries. Each has optional `label` (shown in listings and in the peek panel) and `sound` (stored for v2 — see below — but not yet applied to notifications).
+
+**What VIPs currently do (v1):**
+- Highlighted with a ⭐ and a dedicated unread counter in the sidebar peek panel.
+- Stored and visible in Settings → Email.
+
+**What VIPs will do in v2 (scaffolded but not yet firing):**
+- ⭐ prefix on OS notifications.
+- Custom notification sound per VIP.
+
+The notification-hook plumbing needs a sender-email field added to the internal `notification:native` bus event before these fire — tracked as a follow-up.
 
 ## Peek panel
 
@@ -79,7 +90,7 @@ Hotkeys are **in-app** — they fire only while a Nexus window is focused.
 
 - **Copy hotkey does nothing** — open **Settings → Hotkeys** and confirm `email.copyAsJson` has a binding. If a provider-native shortcut (Gmail's own `c` for compose, etc.) is conflicting, rebind to a different chord.
 - **Peek panel is empty** — the overlay needs the inbox DOM to be rendered at least once. Scroll the inbox, or switch to it and back, to trigger the MutationObserver.
-- **VIP prefix missing on notifications** — VIP differentiation requires the notification pipeline to include a sender email. The v1 hook is in place but sender threading from the overlay through to the Notification payload lands in v2. Track progress in `src/main/core/eventBus.ts` (`notification:native` event shape).
+- **VIP prefix missing on notifications** — VIP notification prefixing and custom sounds are explicitly v2 (see above). The hook is installed in `NotificationService.showNative`, but the `notification:native` event in `src/main/core/eventBus.ts` does not yet carry a sender email, so the VIP check never fires. File an issue if you need this before v2 — it's a medium-size wiring task, not a hard one.
 
 ## Where the code lives
 
