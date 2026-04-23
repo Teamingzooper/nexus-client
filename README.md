@@ -2,7 +2,7 @@
 
 **All your messaging apps in one window.**
 
-Nexus is a clean, themeable desktop client that pulls WhatsApp, Telegram, Messenger, Microsoft Teams, and anything else with a web chat into a single app. One window, one theme, one notification badge — and each service is still the real web app, with your real logins.
+Nexus is a clean, themeable desktop client that pulls WhatsApp, Telegram, Messenger, Microsoft Teams, Google Chat, and anything else with a web chat into a single app. One window, one theme, one notification badge — and each service is still the real web app, with your real logins.
 
 ## Download
 
@@ -13,6 +13,7 @@ Grab the latest installer for your platform from the [Releases page](https://git
 | macOS (Apple Silicon) | `Nexus-<version>-arm64.dmg` |
 | macOS (Intel) | `Nexus-<version>-x64.dmg` |
 | Windows | `Nexus-Setup-<version>.exe` |
+| Linux | `Nexus-<version>.AppImage` |
 
 ### First launch
 
@@ -56,13 +57,16 @@ Keyboard shortcuts: **⌘,** / **Ctrl+,** opens Settings, **⌘R** / **Ctrl+R** 
 - **Unified notifications.** A single badge on your dock or taskbar shows the total unread count across everything. Per-instance badges in the sidebar show where to look.
 - **Do Not Disturb, privacy mode, per-instance mute.** All in Settings → Notifications.
 - **Themes.** Pick a built-in theme or design your own in the in-app theme editor — no CSS required.
+- **Userscripts.** Inject your own JavaScript or CSS into any module — Tampermonkey/Stylus-style. Restyle WhatsApp, hide the Teams rail, tweak anything you want. Paste existing DOM-only Tampermonkey scripts and they just work.
 - **Profiles.** Optional password-protected profiles let you keep separate sets of instances (e.g. a personal profile and a work profile) on the same machine.
-- **In-place updates.** When a new version ships, Nexus downloads it quietly in the background. Click **Install and restart** when it's ready — your logins and settings are preserved.
+- **System tray + global hotkey.** Keep Nexus running in the tray / menu bar and summon it from anywhere with a configurable keyboard shortcut.
+- **In-place updates.** When a new version is available, the Updates tab shows the release notes and a **Download update** button. Your logins and settings are preserved across upgrades.
 
 ## Guides
 
 - [**Modules**](docs/MODULES.md) — add, organize, and (optionally) create your own messaging modules.
 - [**Themes**](docs/THEMES.md) — customize every color in the app.
+- [**Userscripts**](docs/USERSCRIPTS.md) — inject your own JS/CSS into any module.
 
 ## Supported services (out of the box)
 
@@ -71,8 +75,9 @@ Keyboard shortcuts: **⌘,** / **Ctrl+,** opens Settings, **⌘R** / **Ctrl+R** 
 - Messenger
 - Instagram
 - Microsoft Teams
+- Google Chat
 
-More can be added as modules — see the [Modules guide](docs/MODULES.md).
+More can be added as modules — see the [Modules guide](docs/MODULES.md). A growing set of community modules (WeChat and more) are one click away under **Settings → Modules → Browse community modules**.
 
 ## Privacy
 

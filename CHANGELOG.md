@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.0 — 2026-04-23
+
+### Features
+- **Userscripts**: a new **Settings → Userscripts** tab lets you inject JavaScript or CSS into any module, Tampermonkey/Stylus-style. Each script has a header block (`@name`, `@module`, `@match`, `@run-at`) that targets a service and URL pattern; paste existing DOM-only Tampermonkey scripts directly and they just work (no `GM_*` APIs). Edit inline or in your own editor — the files live on disk in your userscripts folder, and Nexus hot-reloads on save. Right-click any script for **Rename**, **Duplicate**, **Enable/Disable**, or **Delete**. CSS is replace-style (instant updates with no page reload); JS is re-run on every full page load and wrapped in a try/catch so one bad script can't break the rest. An **Open tutorial** button links to [docs/USERSCRIPTS.md](docs/USERSCRIPTS.md).
+- **Google Chat module**: bundled Google Chat web client (`chat.google.com`) with OAuth redirect origins whitelisted and title-based unread count parsing, matching the other built-in modules.
+
+### Under the hood
+- New `UserscriptService` scans `userData/userscripts/` for `.user.js` and `.user.css` files, parses headers, and watches the folder for external edits via `fs.watch`. Enabled/disabled state lives in a separate file so toggling never mutates user content.
+- `ViewService` injects CSS via `insertCSS` on `dom-ready` and refreshes it on SPA in-page navigations; JS runs once per full page load to avoid double-binding handlers on every hashchange.
+
 ## 1.3.2 — 2026-04-20
 
 ### Changes
