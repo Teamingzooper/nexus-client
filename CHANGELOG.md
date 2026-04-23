@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1 — 2026-04-23
+
+### Fixes
+- **Release notes render with formatting again**: the Updates tab was showing raw HTML tags (`<strong>`, `<code>`, `<li>`) inline with the text instead of rendering them. GitHub's releases atom feed — what electron-updater reads — ships pre-rendered HTML, which the in-app Markdown component passed through as literal text. The renderer now detects HTML input and maps it to an allow-listed set of React elements (no `dangerouslySetInnerHTML`). Headings, lists, bold/italic, inline code, and external links all render correctly again.
+
 ## 1.4.0 — 2026-04-23
 
 ### Features
