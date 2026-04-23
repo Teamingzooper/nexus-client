@@ -10,6 +10,7 @@ import type {
   ModuleInstance,
   ProfileSummary,
 } from '../shared/types';
+import type { Userscript, UserscriptSummary } from '../shared/userscripts';
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string; details?: unknown };
 
@@ -151,6 +152,24 @@ const api = {
     const listener = (_: unknown, payload: unknown) => cb(payload);
     ipcRenderer.on('nexus:updater:status', listener);
     return () => ipcRenderer.removeListener('nexus:updater:status', listener);
+  },
+
+  // Userscripts
+  listUserscripts: (): Promise<UserscriptSummary[]> => invoke(IPC.USERSCRIPTS_LIST),
+  getUserscript: (filename: string): Promise<Userscript> =>
+    invoke(IPC.USERSCRIPTS_GET, filename),
+  saveUserscript: (filename: string, source: string): Promise<Userscript> =>
+    invoke(IPC.USERSCRIPTS_SAVE, { filename, source }),
+  deleteUserscript: (filename: string): Promise<void> =>
+    invoke(IPC.USERSCRIPTS_DELETE, filename),
+  setUserscriptEnabled: (filename: string, enabled: boolean): Promise<Userscript> =>
+    invoke(IPC.USERSCRIPTS_SET_ENABLED, { filename, enabled }),
+  openUserscriptsDir: (): Promise<void> => invoke(IPC.USERSCRIPTS_OPEN_DIR),
+  rescanUserscripts: (): Promise<UserscriptSummary[]> => invoke(IPC.USERSCRIPTS_RESCAN),
+  onUserscriptsChanged: (cb: (list: UserscriptSummary[]) => void): (() => void) => {
+    const listener = (_: unknown, payload: UserscriptSummary[]) => cb(payload);
+    ipcRenderer.on(IPC.USERSCRIPTS_CHANGED, listener);
+    return () => ipcRenderer.removeListener(IPC.USERSCRIPTS_CHANGED, listener);
   },
 };
 

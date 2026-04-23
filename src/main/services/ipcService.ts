@@ -24,6 +24,8 @@ import type { NotificationService } from './notificationService';
 import type { UpdaterService } from './updaterService';
 import type { TrayService } from './trayService';
 import type { CommunityModulesService } from './communityModulesService';
+import type { UserscriptService } from './userscriptService';
+import { userscriptFilenameSchema, userscriptSaveSchema, userscriptSetEnabledSchema } from '../../shared/userscripts';
 
 export class IpcService implements Service {
   readonly name = 'ipc';
@@ -44,6 +46,16 @@ export class IpcService implements Service {
     const updater = ctx.container.get<UpdaterService>('updater');
     const tray = ctx.container.get<TrayService>('tray');
     const community = ctx.container.get<CommunityModulesService>('community-modules');
+    const userscripts = ctx.container.get<UserscriptService>('userscripts');
+
+    // Broadcast userscripts changes to the renderer so the settings pane
+    // refreshes when the on-disk folder changes (external edits, etc.).
+    ctx.bus.on('userscripts:changed', () => {
+      const win = windowSvc.getWindow();
+      if (win && !win.isDestroyed()) {
+        win.webContents.send(IPC.USERSCRIPTS_CHANGED, userscripts.list());
+      }
+    });
 
     this.router.register(IPC.MODULES_LIST, { handler: () => registry.list() });
 
@@ -457,6 +469,40 @@ export class IpcService implements Service {
       handler: async ({ moduleId, overwrite }) => {
         await community.install(moduleId, overwrite === true);
       },
+    });
+
+    this.router.register(IPC.USERSCRIPTS_LIST, { handler: () => userscripts.list() });
+
+    this.router.register(IPC.USERSCRIPTS_GET, {
+      input: userscriptFilenameSchema,
+      handler: (filename) => {
+        const s = userscripts.get(filename);
+        if (!s) throw new Error(`unknown userscript: ${filename}`);
+        return s;
+      },
+    });
+
+    this.router.register(IPC.USERSCRIPTS_SAVE, {
+      input: userscriptSaveSchema,
+      handler: async ({ filename, source }) => userscripts.save(filename, source),
+    });
+
+    this.router.register(IPC.USERSCRIPTS_DELETE, {
+      input: userscriptFilenameSchema,
+      handler: async (filename) => userscripts.delete(filename),
+    });
+
+    this.router.register(IPC.USERSCRIPTS_SET_ENABLED, {
+      input: userscriptSetEnabledSchema,
+      handler: async ({ filename, enabled }) => userscripts.setEnabled(filename, enabled),
+    });
+
+    this.router.register(IPC.USERSCRIPTS_OPEN_DIR, {
+      handler: () => userscripts.openDir(),
+    });
+
+    this.router.register(IPC.USERSCRIPTS_RESCAN, {
+      handler: () => userscripts.scan(),
     });
   }
 

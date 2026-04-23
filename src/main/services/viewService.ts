@@ -8,6 +8,7 @@ import type { Logger } from '../core/logger';
 import type { ModuleRegistryService } from './moduleRegistryService';
 import type { WindowService } from './windowService';
 import type { ProfileService } from './profileService';
+import type { UserscriptService } from './userscriptService';
 import { DefaultStrategyFactory } from './notifications/strategies';
 import type { NotificationStrategy, StrategyFactory } from './notifications/strategy';
 import { mainWorldNotificationShim } from './notifications/mainWorldShim';
@@ -18,6 +19,8 @@ interface ManagedView {
   moduleId: string;
   view: WebContentsView;
   strategy?: NotificationStrategy;
+  /** insertCSS keys for userscript-injected stylesheets, so we can remove/replace them. */
+  userCssKeys: string[];
 }
 
 const HIDDEN: Bounds = { x: -10000, y: -10000, width: 0, height: 0 };
@@ -29,6 +32,7 @@ export class ViewService implements Service {
   private registry!: ModuleRegistryService;
   private windowService!: WindowService;
   private profiles!: ProfileService;
+  private userscripts!: UserscriptService;
   private views = new Map<string, ManagedView>();
   private activeId: string | null = null;
   private bounds: Bounds = { x: 220, y: 40, width: 800, height: 600 };
@@ -41,6 +45,20 @@ export class ViewService implements Service {
     this.registry = ctx.container.get<ModuleRegistryService>('modules');
     this.windowService = ctx.container.get<WindowService>('window');
     this.profiles = ctx.container.get<ProfileService>('profiles');
+    this.userscripts = ctx.container.get<UserscriptService>('userscripts');
+
+    // When a userscript is added/edited/toggled, reinject into every live view
+    // that matches. Pages don't reload — CSS is updated via insertCSS/removeCSS
+    // (full replace) and JS is re-executed in place. Re-running JS can
+    // double-bind handlers; author beware. Alternative (reload the page) would
+    // drop unsaved chat drafts.
+    ctx.bus.on('userscripts:changed', () => {
+      for (const mv of this.views.values()) {
+        this.applyUserscripts(mv, { js: true }).catch((err) =>
+          this.logger.warn(`userscript apply failed for ${mv.instanceId}`, err),
+        );
+      }
+    });
   }
 
   async dispose(): Promise<void> {
@@ -181,6 +199,55 @@ export class ViewService implements Service {
     await Promise.all(instanceIds.map((id) => this.clearInstanceData(id)));
   }
 
+  /**
+   * Inject matching userscripts into a view. CSS is replace-style: we remove
+   * previously-injected CSS keys and re-insert whatever matches now. JS is
+   * fire-and-forget — userscripts are expected to be idempotent since they'll
+   * be re-run on full navigations and on edit.
+   */
+  private async applyUserscripts(
+    mv: ManagedView,
+    opts: { js: boolean },
+  ): Promise<void> {
+    const wc = mv.view.webContents;
+    if (wc.isDestroyed()) return;
+    const url = wc.getURL();
+    if (!url || url === 'about:blank') return;
+
+    // Replace CSS: remove prior keys, then insert matching ones.
+    for (const key of mv.userCssKeys) {
+      try {
+        await wc.removeInsertedCSS(key);
+      } catch {
+        // key may already be gone after navigation
+      }
+    }
+    mv.userCssKeys = [];
+    const cssScripts = this.userscripts.scriptsFor(mv.moduleId, url, 'css');
+    for (const s of cssScripts) {
+      try {
+        const key = await wc.insertCSS(s.source);
+        mv.userCssKeys.push(key);
+      } catch (err) {
+        this.logger.warn(`userscript css insert failed: ${s.filename}`, err);
+      }
+    }
+
+    if (!opts.js) return;
+    const jsScripts = this.userscripts.scriptsFor(mv.moduleId, url, 'js');
+    for (const s of jsScripts) {
+      // Wrap in an IIFE so `var`/`let` from one script don't collide. Errors
+      // inside the script surface as a promise rejection from executeJavaScript
+      // — we log and keep going.
+      const wrapped = `(function(){try{\n${s.source}\n}catch(e){console.error('[nexus userscript ${s.filename}]',e);}})()`;
+      try {
+        await wc.executeJavaScript(wrapped, true);
+      } catch (err) {
+        this.logger.warn(`userscript js exec failed: ${s.filename}`, err);
+      }
+    }
+  }
+
   reloadActive(): void {
     if (!this.activeId) return;
     const mv = this.views.get(this.activeId);
@@ -297,6 +364,27 @@ export class ViewService implements Service {
       this.ctx.bus.emit('view:ready', { instanceId: instance.id });
     });
 
+    // Userscript injection: full apply (CSS + JS) on real page loads, CSS-only
+    // on SPA in-page navigations (so restyling follows URL changes without
+    // re-binding JS handlers on every hashchange).
+    const applyFull = () => {
+      const mvNow = this.views.get(instance.id);
+      if (!mvNow) return;
+      this.applyUserscripts(mvNow, { js: true }).catch((err) =>
+        this.logger.warn(`userscript apply failed for ${instance.id}`, err),
+      );
+    };
+    const applyCssOnly = () => {
+      const mvNow = this.views.get(instance.id);
+      if (!mvNow) return;
+      this.applyUserscripts(mvNow, { js: false }).catch((err) =>
+        this.logger.warn(`userscript css apply failed for ${instance.id}`, err),
+      );
+    };
+    view.webContents.on('dom-ready', applyFull);
+    view.webContents.on('did-finish-load', applyCssOnly);
+    view.webContents.on('did-navigate-in-page', applyCssOnly);
+
     // Listen for notification forwards from the preload and bubble them
     // through the event bus so NotificationService can present them natively.
     view.webContents.ipc.on('nexus:notify:show', (_event, raw: unknown) => {
@@ -329,6 +417,7 @@ export class ViewService implements Service {
       moduleId: instance.moduleId,
       view,
       strategy: strategy ?? undefined,
+      userCssKeys: [],
     };
 
     if (strategy) {

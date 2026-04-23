@@ -4,12 +4,13 @@ import { useOverlay } from '../hooks/useOverlay';
 import { ThemeEditor } from './ThemeEditor';
 import { UpdatesTab } from './UpdatesTab';
 import { CommunityModulesBrowser } from './CommunityModulesBrowser';
+import { UserscriptsPane } from './UserscriptsPane';
 
 interface Props {
   onClose: () => void;
 }
 
-type Tab = 'modules' | 'notifications' | 'themes' | 'general' | 'updates';
+type Tab = 'modules' | 'notifications' | 'themes' | 'userscripts' | 'general' | 'updates';
 
 export function SettingsPanel({ onClose }: Props) {
   const [tab, setTab] = useState<Tab>('modules');
@@ -126,6 +127,14 @@ export function SettingsPanel({ onClose }: Props) {
               onClick={() => setTab('themes')}
             >
               Themes
+            </button>
+            <button
+              role="tab"
+              aria-selected={tab === 'userscripts'}
+              className={tab === 'userscripts' ? 'tab active' : 'tab'}
+              onClick={() => setTab('userscripts')}
+            >
+              Userscripts
             </button>
             <button
               role="tab"
@@ -330,6 +339,8 @@ export function SettingsPanel({ onClose }: Props) {
           )}
 
           {tab === 'themes' && <ThemeEditor />}
+
+          {tab === 'userscripts' && <UserscriptsPane />}
 
           {tab === 'updates' && <UpdatesTab />}
 

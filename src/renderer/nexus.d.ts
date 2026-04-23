@@ -8,6 +8,7 @@ import type {
   ModuleInstance,
   ProfileSummary,
 } from '../shared/types';
+import type { Userscript, UserscriptSummary } from '../shared/userscripts';
 
 export interface UpdateInfo {
   version: string;
@@ -100,6 +101,15 @@ declare global {
       getUpdaterStatus(): Promise<UpdateStatus>;
       onUpdaterStatus(cb: (status: UpdateStatus) => void): () => void;
       getAppVersion(): Promise<{ version: string; isPackaged: boolean }>;
+
+      listUserscripts(): Promise<UserscriptSummary[]>;
+      getUserscript(filename: string): Promise<Userscript>;
+      saveUserscript(filename: string, source: string): Promise<Userscript>;
+      deleteUserscript(filename: string): Promise<void>;
+      setUserscriptEnabled(filename: string, enabled: boolean): Promise<Userscript>;
+      openUserscriptsDir(): Promise<void>;
+      rescanUserscripts(): Promise<UserscriptSummary[]>;
+      onUserscriptsChanged(cb: (list: UserscriptSummary[]) => void): () => void;
 
       listCommunityModules(): Promise<{
         tag: string;

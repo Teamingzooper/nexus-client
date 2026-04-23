@@ -22,6 +22,7 @@ export interface NexusEvents {
   };
   'theme:changed': { themeId: string };
   'settings:changed': { key: string };
+  'userscripts:changed': Record<string, never>;
 }
 
 type Handler<K extends keyof NexusEvents> = (payload: NexusEvents[K]) => void;

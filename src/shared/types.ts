@@ -99,4 +99,12 @@ export const IPC = {
   APP_VERSION: 'nexus:app:version',
   COMMUNITY_MODULES_LIST: 'nexus:community-modules:list',
   COMMUNITY_MODULES_INSTALL: 'nexus:community-modules:install',
+  USERSCRIPTS_LIST: 'nexus:userscripts:list',
+  USERSCRIPTS_GET: 'nexus:userscripts:get',
+  USERSCRIPTS_SAVE: 'nexus:userscripts:save',
+  USERSCRIPTS_DELETE: 'nexus:userscripts:delete',
+  USERSCRIPTS_SET_ENABLED: 'nexus:userscripts:set-enabled',
+  USERSCRIPTS_OPEN_DIR: 'nexus:userscripts:open-dir',
+  USERSCRIPTS_RESCAN: 'nexus:userscripts:rescan',
+  USERSCRIPTS_CHANGED: 'nexus:userscripts:changed',
 } as const;

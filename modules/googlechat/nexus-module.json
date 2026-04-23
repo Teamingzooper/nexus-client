@@ -1,0 +1,25 @@
+{
+  "id": "googlechat",
+  "name": "Google Chat",
+  "version": "1.0.0",
+  "author": "nexus",
+  "description": "Google Chat embedded in Nexus.",
+  "url": "https://chat.google.com/",
+  "icon": "icon.svg",
+  "partition": "persist:googlechat",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "allowedOrigins": [
+    "https://accounts.google.com",
+    "https://accounts.youtube.com",
+    "https://myaccount.google.com",
+    "https://mail.google.com",
+    "https://hangouts.google.com",
+    "https://meet.google.com",
+    "https://ssl.gstatic.com",
+    "https://www.google.com"
+  ],
+  "notifications": {
+    "kind": "title",
+    "pattern": "\\((\\d+)\\)"
+  }
+}

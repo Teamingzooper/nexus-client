@@ -14,6 +14,7 @@ import { MenuService } from './services/menuService';
 import { UpdaterService } from './services/updaterService';
 import { TrayService } from './services/trayService';
 import { CommunityModulesService } from './services/communityModulesService';
+import { UserscriptService } from './services/userscriptService';
 import { IpcService } from './services/ipcService';
 import { DEFAULT_PROFILE_ID } from '../shared/profile';
 
@@ -66,6 +67,7 @@ async function bootstrap(): Promise<void> {
     .register(new ModuleRegistryService())
     .register(new ProfileService())
     .register(new WindowService())
+    .register(new UserscriptService())
     .register(new ViewService())
     .register(new NotificationService())
     .register(new UpdaterService())
