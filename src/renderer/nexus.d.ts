@@ -107,6 +107,8 @@ declare global {
       saveUserscript(filename: string, source: string): Promise<Userscript>;
       deleteUserscript(filename: string): Promise<void>;
       setUserscriptEnabled(filename: string, enabled: boolean): Promise<Userscript>;
+      renameUserscript(from: string, to: string): Promise<Userscript>;
+      duplicateUserscript(filename: string): Promise<Userscript>;
       openUserscriptsDir(): Promise<void>;
       rescanUserscripts(): Promise<UserscriptSummary[]>;
       onUserscriptsChanged(cb: (list: UserscriptSummary[]) => void): () => void;

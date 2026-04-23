@@ -104,6 +104,8 @@ export const IPC = {
   USERSCRIPTS_SAVE: 'nexus:userscripts:save',
   USERSCRIPTS_DELETE: 'nexus:userscripts:delete',
   USERSCRIPTS_SET_ENABLED: 'nexus:userscripts:set-enabled',
+  USERSCRIPTS_RENAME: 'nexus:userscripts:rename',
+  USERSCRIPTS_DUPLICATE: 'nexus:userscripts:duplicate',
   USERSCRIPTS_OPEN_DIR: 'nexus:userscripts:open-dir',
   USERSCRIPTS_RESCAN: 'nexus:userscripts:rescan',
   USERSCRIPTS_CHANGED: 'nexus:userscripts:changed',

@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNexus } from '../store';
 import type { Userscript, UserscriptSummary } from '../../shared/userscripts';
+
+const TUTORIAL_URL =
+  'https://github.com/Teamingzooper/nexus-client/blob/main/docs/USERSCRIPTS.md';
 
 const JS_TEMPLATE = `// ==UserScript==
 // @name         New userscript
@@ -30,6 +33,12 @@ function timestampSlug(): string {
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
+interface ContextMenuState {
+  filename: string;
+  x: number;
+  y: number;
+}
+
 export function UserscriptsPane() {
   const modules = useNexus((s) => s.modules);
 
@@ -38,6 +47,8 @@ export function UserscriptsPane() {
   const [editing, setEditing] = useState<Userscript | null>(null);
   const [dirty, setDirty] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [menu, setMenu] = useState<ContextMenuState | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => {
     try {
@@ -52,13 +63,29 @@ export function UserscriptsPane() {
     refresh();
     const off = window.nexus.onUserscriptsChanged((list) => {
       setScripts(list);
-      // If the currently-edited file changed on disk and we have no unsaved edits,
-      // reload it. Otherwise keep local edits to avoid clobbering the user's work.
       if (selected && !dirty) loadInto(selected);
     });
     return off;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Dismiss the context menu on outside click, Escape, or scroll.
+  useEffect(() => {
+    if (!menu) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenu(null);
+    };
+    window.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('scroll', () => setMenu(null), true);
+    return () => {
+      window.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
 
   const loadInto = async (filename: string) => {
     try {
@@ -103,14 +130,15 @@ export function UserscriptsPane() {
     }
   };
 
-  const handleDelete = async () => {
-    if (!editing) return;
-    if (!window.confirm(`Delete ${editing.filename}? This cannot be undone.`)) return;
+  const handleDelete = async (filename: string) => {
+    if (!window.confirm(`Delete ${filename}? This cannot be undone.`)) return;
     try {
-      await window.nexus.deleteUserscript(editing.filename);
-      setEditing(null);
-      setSelected(null);
-      setDirty(false);
+      await window.nexus.deleteUserscript(filename);
+      if (selected === filename) {
+        setEditing(null);
+        setSelected(null);
+        setDirty(false);
+      }
       await refresh();
     } catch (err) {
       console.error('delete failed', err);
@@ -127,6 +155,46 @@ export function UserscriptsPane() {
     }
   };
 
+  const handleRename = async (filename: string) => {
+    const next = window.prompt('New filename (must end in .user.js or .user.css):', filename);
+    if (!next || next === filename) return;
+    const trimmed = next.trim();
+    try {
+      const renamed = await window.nexus.renameUserscript(filename, trimmed);
+      await refresh();
+      if (selected === filename) {
+        setSelected(renamed.filename);
+        setEditing(renamed);
+        setDirty(false);
+      }
+    } catch (err) {
+      console.error('rename failed', err);
+      flashMsg(`Rename failed: ${(err as Error).message}`);
+    }
+  };
+
+  const handleDuplicate = async (filename: string) => {
+    try {
+      const dup = await window.nexus.duplicateUserscript(filename);
+      await refresh();
+      await loadInto(dup.filename);
+    } catch (err) {
+      console.error('duplicate failed', err);
+      flashMsg(`Duplicate failed: ${(err as Error).message}`);
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent, filename: string) => {
+    e.preventDefault();
+    // Clamp to viewport so the menu doesn't clip on right/bottom edge. Width
+    // and height are rough; the CSS max-width backs this up.
+    const MENU_W = 200;
+    const MENU_H = 200;
+    const x = Math.min(e.clientX, window.innerWidth - MENU_W - 4);
+    const y = Math.min(e.clientY, window.innerHeight - MENU_H - 4);
+    setMenu({ filename, x, y });
+  };
+
   const moduleName = (id?: string) =>
     id ? (modules.find((m) => m.manifest.id === id)?.manifest.name ?? id) : 'any';
 
@@ -134,6 +202,8 @@ export function UserscriptsPane() {
     () => [...scripts].sort((a, b) => a.meta.name.localeCompare(b.meta.name)),
     [scripts],
   );
+
+  const menuScript = menu ? scripts.find((s) => s.filename === menu.filename) : null;
 
   return (
     <div className="userscripts-pane">
@@ -154,6 +224,9 @@ export function UserscriptsPane() {
         <button onClick={() => window.nexus.rescanUserscripts().then(refresh)}>
           Rescan
         </button>
+        <button onClick={() => window.open(TUTORIAL_URL, '_blank', 'noopener')}>
+          Open tutorial
+        </button>
       </div>
 
       <div className="userscripts-layout">
@@ -165,6 +238,7 @@ export function UserscriptsPane() {
             <li
               key={s.filename}
               className={`userscripts-item ${selected === s.filename ? 'active' : ''}`}
+              onContextMenu={(e) => handleContextMenu(e, s.filename)}
             >
               <button
                 className="userscripts-item-main"
@@ -217,7 +291,10 @@ export function UserscriptsPane() {
                   <button onClick={handleSave} disabled={!dirty}>
                     Save
                   </button>
-                  <button className="danger-button" onClick={handleDelete}>
+                  <button
+                    className="danger-button"
+                    onClick={() => handleDelete(editing.filename)}
+                  >
                     Delete
                   </button>
                 </div>
@@ -234,7 +311,6 @@ export function UserscriptsPane() {
                   setDirty(true);
                 }}
                 onKeyDown={(e) => {
-                  // Cmd/Ctrl+S saves inline without closing the modal.
                   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
                     e.preventDefault();
                     handleSave();
@@ -246,6 +322,63 @@ export function UserscriptsPane() {
           )}
         </div>
       </div>
+
+      {menu && menuScript && (
+        <div
+          ref={menuRef}
+          className="userscripts-context-menu"
+          style={{ left: menu.x, top: menu.y }}
+          role="menu"
+        >
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              loadInto(menu.filename);
+            }}
+          >
+            Open
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              handleRename(menu.filename);
+            }}
+          >
+            Rename…
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              handleDuplicate(menu.filename);
+            }}
+          >
+            Duplicate
+          </button>
+          <button
+            role="menuitem"
+            onClick={() => {
+              setMenu(null);
+              handleToggle(menu.filename, !menuScript.enabled);
+            }}
+          >
+            {menuScript.enabled ? 'Disable' : 'Enable'}
+          </button>
+          <div className="userscripts-context-menu-sep" />
+          <button
+            role="menuitem"
+            className="danger"
+            onClick={() => {
+              setMenu(null);
+              handleDelete(menu.filename);
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   );
 }

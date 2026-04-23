@@ -41,6 +41,11 @@ export const userscriptSetEnabledSchema = z.object({
   enabled: z.boolean(),
 });
 
+export const userscriptRenameSchema = z.object({
+  from: userscriptFilenameSchema,
+  to: userscriptFilenameSchema,
+});
+
 /**
  * Parse a Tampermonkey/Stylus-style header block out of a .user.js or .user.css
  * file. Missing header is not an error — returns defaults with empty matches

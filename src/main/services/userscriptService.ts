@@ -176,6 +176,61 @@ export class UserscriptService implements Service {
     this.bus.emit('userscripts:changed', {});
   }
 
+  async rename(from: string, to: string): Promise<Userscript> {
+    if (from === to) {
+      const s = this.scripts.get(from);
+      if (!s) throw new Error(`unknown userscript: ${from}`);
+      return s;
+    }
+    // Extensions must match — a .user.js can't become a .user.css, the file
+    // contents wouldn't parse.
+    const fromExt = from.toLowerCase().endsWith('.user.css') ? 'css' : 'js';
+    const toExt = to.toLowerCase().endsWith('.user.css') ? 'css' : 'js';
+    if (fromExt !== toExt) throw new Error('cannot change extension when renaming');
+
+    const fromPath = path.join(this.dir, from);
+    const toPath = path.join(this.dir, to);
+    if (path.dirname(fromPath) !== this.dir || path.dirname(toPath) !== this.dir) {
+      throw new Error('filename escapes userscripts dir');
+    }
+    // Refuse to overwrite an existing file.
+    try {
+      await fs.access(toPath);
+      throw new Error(`a userscript named "${to}" already exists`);
+    } catch (err: any) {
+      if (err?.code !== 'ENOENT') throw err;
+    }
+    await fs.rename(fromPath, toPath);
+    // Carry over enabled/disabled state.
+    if (this.disabled.has(from)) {
+      this.disabled.delete(from);
+      this.disabled.add(to);
+      await this.saveState();
+    }
+    await this.scan();
+    this.bus.emit('userscripts:changed', {});
+    const renamed = this.scripts.get(to);
+    if (!renamed) throw new Error('rename succeeded but script not visible after rescan');
+    return renamed;
+  }
+
+  async duplicate(filename: string): Promise<Userscript> {
+    const s = this.scripts.get(filename);
+    if (!s) throw new Error(`unknown userscript: ${filename}`);
+    // Walk "name.user.js" → "name-copy.user.js" → "name-copy-2.user.js" …
+    const extMatch = filename.match(/\.user\.(js|css)$/i);
+    if (!extMatch) throw new Error('bad filename');
+    const ext = extMatch[0];
+    const base = filename.slice(0, -ext.length);
+    let candidate = `${base}-copy${ext}`;
+    let n = 2;
+    while (this.scripts.has(candidate)) {
+      candidate = `${base}-copy-${n}${ext}`;
+      n++;
+    }
+    return this.save(candidate, s.source);
+  }
+
   async setEnabled(filename: string, enabled: boolean): Promise<Userscript | undefined> {
     if (!this.scripts.has(filename)) throw new Error(`unknown userscript: ${filename}`);
     if (enabled) this.disabled.delete(filename);

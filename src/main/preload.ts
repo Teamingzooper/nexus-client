@@ -164,6 +164,10 @@ const api = {
     invoke(IPC.USERSCRIPTS_DELETE, filename),
   setUserscriptEnabled: (filename: string, enabled: boolean): Promise<Userscript> =>
     invoke(IPC.USERSCRIPTS_SET_ENABLED, { filename, enabled }),
+  renameUserscript: (from: string, to: string): Promise<Userscript> =>
+    invoke(IPC.USERSCRIPTS_RENAME, { from, to }),
+  duplicateUserscript: (filename: string): Promise<Userscript> =>
+    invoke(IPC.USERSCRIPTS_DUPLICATE, filename),
   openUserscriptsDir: (): Promise<void> => invoke(IPC.USERSCRIPTS_OPEN_DIR),
   rescanUserscripts: (): Promise<UserscriptSummary[]> => invoke(IPC.USERSCRIPTS_RESCAN),
   onUserscriptsChanged: (cb: (list: UserscriptSummary[]) => void): (() => void) => {

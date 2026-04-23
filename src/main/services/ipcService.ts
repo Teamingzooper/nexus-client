@@ -25,7 +25,12 @@ import type { UpdaterService } from './updaterService';
 import type { TrayService } from './trayService';
 import type { CommunityModulesService } from './communityModulesService';
 import type { UserscriptService } from './userscriptService';
-import { userscriptFilenameSchema, userscriptSaveSchema, userscriptSetEnabledSchema } from '../../shared/userscripts';
+import {
+  userscriptFilenameSchema,
+  userscriptSaveSchema,
+  userscriptSetEnabledSchema,
+  userscriptRenameSchema,
+} from '../../shared/userscripts';
 
 export class IpcService implements Service {
   readonly name = 'ipc';
@@ -495,6 +500,16 @@ export class IpcService implements Service {
     this.router.register(IPC.USERSCRIPTS_SET_ENABLED, {
       input: userscriptSetEnabledSchema,
       handler: async ({ filename, enabled }) => userscripts.setEnabled(filename, enabled),
+    });
+
+    this.router.register(IPC.USERSCRIPTS_RENAME, {
+      input: userscriptRenameSchema,
+      handler: async ({ from, to }) => userscripts.rename(from, to),
+    });
+
+    this.router.register(IPC.USERSCRIPTS_DUPLICATE, {
+      input: userscriptFilenameSchema,
+      handler: async (filename) => userscripts.duplicate(filename),
     });
 
     this.router.register(IPC.USERSCRIPTS_OPEN_DIR, {
