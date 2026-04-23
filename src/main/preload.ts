@@ -175,6 +175,11 @@ const api = {
     ipcRenderer.on(IPC.USERSCRIPTS_CHANGED, listener);
     return () => ipcRenderer.removeListener(IPC.USERSCRIPTS_CHANGED, listener);
   },
+
+  listCommunityUserscripts: (): Promise<unknown> =>
+    invoke(IPC.COMMUNITY_USERSCRIPTS_LIST),
+  installCommunityUserscript: (filename: string, overwrite = false): Promise<void> =>
+    invoke(IPC.COMMUNITY_USERSCRIPTS_INSTALL, { filename, overwrite }),
 };
 
 contextBridge.exposeInMainWorld('nexus', api);

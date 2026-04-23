@@ -189,6 +189,16 @@ function UpdateDetails({
   const notes = status.releaseNotes?.trim() ?? '';
   const date = status.releaseDate ? formatDate(status.releaseDate) : null;
 
+  // macOS auto-install is unreliable for unsigned builds — Squirrel.Mac
+  // copies the new bundle into place, but Gatekeeper then refuses to
+  // relaunch it because the downloaded .app carries the quarantine xattr
+  // and we aren't signed with a Developer ID. Until that changes, on
+  // macOS we route users to the release page and show the one-command
+  // `xattr -cr` workaround inline. Windows/Linux keep the normal
+  // download → install-and-restart flow.
+  const isMac = window.nexus.platform === 'darwin';
+  const releaseUrl = `https://github.com/Teamingzooper/nexus-client/releases/tag/v${status.version}`;
+
   return (
     <div className="updates-found">
       <div className="updates-found-header">
@@ -200,7 +210,14 @@ function UpdateDetails({
             {` · you have v${currentVersion}`}
           </div>
         </div>
-        {status.state === 'downloaded' ? (
+        {isMac ? (
+          <button
+            className="confirm-ok"
+            onClick={() => window.open(releaseUrl, '_blank', 'noopener')}
+          >
+            Open release page
+          </button>
+        ) : status.state === 'downloaded' ? (
           <button className="confirm-ok" onClick={onInstall}>
             Install and restart
           </button>
@@ -214,6 +231,20 @@ function UpdateDetails({
           </button>
         )}
       </div>
+
+      {isMac && (
+        <div className="updates-mac-note">
+          <strong>Manual install (macOS).</strong> Nexus isn't code-signed yet,
+          so macOS won't let the in-app updater relaunch a replaced bundle.
+          Click <em>Open release page</em>, download{' '}
+          <code>Nexus-{status.version}-arm64.dmg</code> (or <code>-x64.dmg</code>{' '}
+          for Intel), drag the new <strong>Nexus.app</strong> over the old one
+          in Applications, then run this once in Terminal:
+          <pre>xattr -cr /Applications/Nexus.app</pre>
+          Your profiles, logins, and userscripts are stored outside the app
+          bundle and carry over untouched.
+        </div>
+      )}
 
       {notes ? (
         <div className="updates-changelog">

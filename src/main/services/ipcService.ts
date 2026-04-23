@@ -25,6 +25,7 @@ import type { UpdaterService } from './updaterService';
 import type { TrayService } from './trayService';
 import type { CommunityModulesService } from './communityModulesService';
 import type { UserscriptService } from './userscriptService';
+import type { CommunityUserscriptsService } from './communityUserscriptsService';
 import {
   userscriptFilenameSchema,
   userscriptSaveSchema,
@@ -52,6 +53,9 @@ export class IpcService implements Service {
     const tray = ctx.container.get<TrayService>('tray');
     const community = ctx.container.get<CommunityModulesService>('community-modules');
     const userscripts = ctx.container.get<UserscriptService>('userscripts');
+    const communityUserscripts = ctx.container.get<CommunityUserscriptsService>(
+      'community-userscripts',
+    );
 
     // Broadcast userscripts changes to the renderer so the settings pane
     // refreshes when the on-disk folder changes (external edits, etc.).
@@ -518,6 +522,19 @@ export class IpcService implements Service {
 
     this.router.register(IPC.USERSCRIPTS_RESCAN, {
       handler: () => userscripts.scan(),
+    });
+
+    this.router.register(IPC.COMMUNITY_USERSCRIPTS_LIST, {
+      handler: () => communityUserscripts.list(),
+    });
+
+    this.router.register(IPC.COMMUNITY_USERSCRIPTS_INSTALL, {
+      input: z.object({
+        filename: userscriptFilenameSchema,
+        overwrite: z.boolean().optional(),
+      }),
+      handler: async ({ filename, overwrite }) =>
+        communityUserscripts.install(filename, overwrite === true),
     });
   }
 

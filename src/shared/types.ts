@@ -109,4 +109,6 @@ export const IPC = {
   USERSCRIPTS_OPEN_DIR: 'nexus:userscripts:open-dir',
   USERSCRIPTS_RESCAN: 'nexus:userscripts:rescan',
   USERSCRIPTS_CHANGED: 'nexus:userscripts:changed',
+  COMMUNITY_USERSCRIPTS_LIST: 'nexus:community-userscripts:list',
+  COMMUNITY_USERSCRIPTS_INSTALL: 'nexus:community-userscripts:install',
 } as const;

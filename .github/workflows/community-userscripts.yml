@@ -1,0 +1,64 @@
+name: Community Userscripts
+
+# Fires on tags like `community-userscripts-v1`. Each push publishes (or
+# updates) a GitHub Release containing every .user.js / .user.css file in
+# community-userscripts/ plus an index.json manifest the in-app browser
+# consumes.
+on:
+  push:
+    tags:
+      - "community-userscripts-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Community userscripts tag to (re)build (e.g. community-userscripts-v1)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  pack:
+    name: Pack and upload community userscripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Pack userscripts
+        run: node scripts/pack-community-userscripts.js
+
+      - name: List built assets
+        run: ls -lah community-userscripts/dist
+
+      - name: Upload to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          name: ${{ inputs.tag || github.ref_name }}
+          body: |
+            Community-maintained Nexus userscripts and user styles.
+
+            Each `.user.js` / `.user.css` on this release is a single-file
+            script. Install one from **Settings → Userscripts → Browse
+            community scripts** inside Nexus, or download manually and drop
+            it into your Nexus userscripts folder (**Settings → Userscripts
+            → Open userscripts folder**).
+
+            `index.json` is the machine-readable catalogue the in-app
+            browser reads.
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            community-userscripts/dist/*.user.js
+            community-userscripts/dist/*.user.css
+            community-userscripts/dist/index.json

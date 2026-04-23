@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.0 — 2026-04-23
+
+### Features
+- **Community userscripts registry**: a new **Browse community scripts** button in **Settings → Userscripts** fetches the latest `community-userscripts-v*` release from GitHub and lists every `.user.js` / `.user.css` in it — each entry shows its name, description, target module, author, and version pulled out of the header block. Click **Install** and the file lands in your userscripts folder; already-installed scripts prompt before overwriting. Mirrors the existing community-modules flow.
+- **Release page polish**: every GitHub release body now automatically starts with a "macOS first launch — run `xattr -cr /Applications/Nexus.app`" callout. The `extract-changelog.js` script prepends it so future releases stay consistent without anyone having to remember.
+
+### Fixes
+- **macOS updater is honest about its limits**: in-app auto-install was silently failing for unsigned macOS builds (Squirrel.Mac replaces the bundle but Gatekeeper then refuses to relaunch it because the downloaded `.app` carries the quarantine xattr). The Updates tab on macOS now shows an **Open release page** button with a one-command `xattr -cr` workaround inline, instead of a broken "Install and restart" loop. Windows and Linux keep the working in-place upgrade flow. Signing the macOS build is still on the roadmap — this just stops pretending it already is.
+
+### For contributors
+- New `community-userscripts/` folder at the repo root + `scripts/pack-community-userscripts.js` + `.github/workflows/community-userscripts.yml`. Drop a `.user.js` or `.user.css` file with a header (`@name`, `@module`, `@match`, plus optional `@author`/`@version`/`@description`) and push a `community-userscripts-v*` tag to publish.
+
 ## 1.4.1 — 2026-04-23
 
 ### Fixes

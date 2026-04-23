@@ -1,0 +1,12 @@
+/* ==UserStyle==
+@name         Compact Teams
+@description  Tightens chat list rows and hides the promo banner so more of the conversation fits on screen.
+@author       nexus
+@version      1.0.0
+@module       teams
+@match        https://teams.microsoft.com/*
+==/UserStyle== */
+
+[data-tid="chat-list"] [role="treeitem"] { min-height: 44px !important; }
+[data-tid="chat-list"] img { width: 28px !important; height: 28px !important; }
+[data-tid*="banner"], [data-tid="info-bar"] { display: none !important; }

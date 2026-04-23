@@ -1,0 +1,14 @@
+/* ==UserStyle==
+@name         Dark WhatsApp accent
+@description  Softens WhatsApp Web's bright green to a muted teal — works in both light and dark UI modes.
+@author       nexus
+@version      1.0.0
+@module       whatsapp
+@match        https://web.whatsapp.com/*
+==/UserStyle== */
+
+:root {
+  --primary: #4a7a64 !important;
+  --teal-light: #4a7a64 !important;
+  --unread-marker-background: #4a7a64 !important;
+}

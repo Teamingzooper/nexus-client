@@ -2184,3 +2184,32 @@ img.sidebar-logo.app-icon-img {
   background: var(--nx-border);
   margin: 4px 2px;
 }
+
+.updates-mac-note {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--nx-border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--nx-accent) 8%, transparent);
+  color: var(--nx-text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.updates-mac-note pre {
+  margin: 8px 0 4px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--nx-bg);
+  font-size: 12.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow: auto;
+}
+
+.updates-mac-note code {
+  background: var(--nx-sidebar-hover);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}

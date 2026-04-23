@@ -113,6 +113,23 @@ declare global {
       rescanUserscripts(): Promise<UserscriptSummary[]>;
       onUserscriptsChanged(cb: (list: UserscriptSummary[]) => void): () => void;
 
+      listCommunityUserscripts(): Promise<{
+        tag: string;
+        name: string;
+        scripts: {
+          filename: string;
+          type: 'js' | 'css';
+          name: string;
+          description: string | null;
+          author: string | null;
+          version: string | null;
+          module: string | null;
+          matches: string[];
+          runAt: string;
+        }[];
+      }>;
+      installCommunityUserscript(filename: string, overwrite?: boolean): Promise<void>;
+
       listCommunityModules(): Promise<{
         tag: string;
         name: string;

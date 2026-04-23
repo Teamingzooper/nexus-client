@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNexus } from '../store';
 import type { Userscript, UserscriptSummary } from '../../shared/userscripts';
+import { CommunityUserscriptsBrowser } from './CommunityUserscriptsBrowser';
 
 const TUTORIAL_URL =
   'https://github.com/Teamingzooper/nexus-client/blob/main/docs/USERSCRIPTS.md';
@@ -48,6 +49,7 @@ export function UserscriptsPane() {
   const [dirty, setDirty] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
   const [menu, setMenu] = useState<ContextMenuState | null>(null);
+  const [browserOpen, setBrowserOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const refresh = async () => {
@@ -224,6 +226,9 @@ export function UserscriptsPane() {
         <button onClick={() => window.nexus.rescanUserscripts().then(refresh)}>
           Rescan
         </button>
+        <button onClick={() => setBrowserOpen(true)}>
+          Browse community scripts
+        </button>
         <button onClick={() => window.open(TUTORIAL_URL, '_blank', 'noopener')}>
           Open tutorial
         </button>
@@ -378,6 +383,15 @@ export function UserscriptsPane() {
             Delete
           </button>
         </div>
+      )}
+
+      {browserOpen && (
+        <CommunityUserscriptsBrowser
+          onClose={() => setBrowserOpen(false)}
+          onInstalled={() => {
+            refresh();
+          }}
+        />
       )}
     </div>
   );
