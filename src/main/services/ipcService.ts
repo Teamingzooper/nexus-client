@@ -29,6 +29,8 @@ export class IpcService implements Service {
   readonly name = 'ipc';
   private router!: IpcRouter;
   private logger!: Logger;
+  /** Teardown fns for external subscriptions (e.g. bus listeners). */
+  private teardowns: Array<() => void> = [];
 
   async init(ctx: ServiceContext): Promise<void> {
     this.logger = ctx.logger.child('ipc');
@@ -458,9 +460,31 @@ export class IpcService implements Service {
         await community.install(moduleId, overwrite === true);
       },
     });
+
+    // Forward `instance:activated` bus events to the main renderer window so
+    // the sidebar's active-instance highlight stays in sync no matter what
+    // triggered the activation (sidebar click round-trips through the same
+    // event, but notification click and command-palette activate also fire
+    // it from main without renderer involvement).
+    this.teardowns.push(
+      ctx.bus.on('instance:activated', ({ instanceId }) => {
+        const win = windowSvc.getWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send(IPC.INSTANCE_ACTIVATED, { instanceId });
+        }
+      }),
+    );
   }
 
   dispose(): void {
     this.router.dispose();
+    for (const fn of this.teardowns) {
+      try {
+        fn();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.teardowns = [];
   }
 }

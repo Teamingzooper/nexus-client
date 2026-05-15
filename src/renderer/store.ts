@@ -213,6 +213,16 @@ export const useNexus = create<NexusStore>((set, get) => ({
       window.nexus.onUnread((update) => {
         set((s) => ({ unread: { ...s.unread, [update.moduleId]: update.count } }));
       });
+
+      // Sync the sidebar highlight whenever main activates an instance for
+      // any reason (notification click, command palette, etc.). The sidebar
+      // click path also fires this event but already updates state itself
+      // via refreshComposite; a duplicate refresh is harmless.
+      window.nexus.onInstanceActivated(async (instanceId) => {
+        // Cheap path first: just update activeInstanceId in place. Avoids
+        // a full IPC round-trip on every notification click.
+        set((s) => ({ state: { ...s.state, activeInstanceId: instanceId } }));
+      });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err), ready: true });
     }

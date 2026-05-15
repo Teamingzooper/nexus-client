@@ -73,6 +73,11 @@ const api = {
     ipcRenderer.on('nexus:menu', listener);
     return () => ipcRenderer.removeListener('nexus:menu', listener);
   },
+  onInstanceActivated: (cb: (instanceId: string) => void): (() => void) => {
+    const listener = (_: unknown, payload: { instanceId: string }) => cb(payload.instanceId);
+    ipcRenderer.on(IPC.INSTANCE_ACTIVATED, listener);
+    return () => ipcRenderer.removeListener(IPC.INSTANCE_ACTIVATED, listener);
+  },
   getAllUnread: (): Promise<Record<string, number>> => invoke(IPC.UNREAD_ALL),
   setNotificationsEnabled: (enabled: boolean): Promise<void> =>
     invoke(IPC.NOTIFY_SET_ENABLED, enabled),

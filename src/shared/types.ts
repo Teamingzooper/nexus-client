@@ -53,6 +53,13 @@ export const IPC = {
   MODULES_OPEN_DIR: 'nexus:modules:open-dir',
   MODULES_RELOAD: 'nexus:modules:reload',
   INSTANCES_ACTIVATE: 'nexus:instances:activate',
+  /**
+   * Push-event channel: main → renderer. Fires whenever the active instance
+   * changes for any reason (sidebar click, notification click, command
+   * palette, etc.). Renderer listens to keep its sidebar highlight in sync
+   * with whatever main has activated.
+   */
+  INSTANCE_ACTIVATED: 'nexus:instance:activated',
   INSTANCES_ADD: 'nexus:instances:add',
   INSTANCES_REMOVE: 'nexus:instances:remove',
   INSTANCES_RENAME: 'nexus:instances:rename',
