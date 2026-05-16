@@ -474,6 +474,17 @@ export class IpcService implements Service {
         }
       }),
     );
+
+    // Forward `view:crashed` bus events so the renderer can show the
+    // CrashOverlay over the affected instance's content area.
+    this.teardowns.push(
+      ctx.bus.on('view:crashed', ({ instanceId, reason }) => {
+        const win = windowSvc.getWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send(IPC.VIEW_CRASHED, { instanceId, reason });
+        }
+      }),
+    );
   }
 
   dispose(): void {

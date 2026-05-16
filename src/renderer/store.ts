@@ -56,6 +56,14 @@ interface NexusStore {
   currentProfile: ProfileSummary | null;
   accountManagerOpen: boolean;
 
+  /**
+   * Set of instance ids whose renderer process has crashed since this
+   * Nexus session started. The CrashOverlay reads this to decide whether
+   * to show the recovery panel for the active instance. Cleared per
+   * entry on successful reload or explicit dismiss.
+   */
+  crashedInstances: Record<string, { reason: string }>;
+
   init(): Promise<void>;
   activateInstance(instanceId: string): Promise<void>;
   addInstance(moduleId: string): Promise<ModuleInstance>;
@@ -125,6 +133,11 @@ interface NexusStore {
   // on unmount; a single App-level effect suspends views while count > 0.
   pushOverlay(): void;
   popOverlay(): void;
+
+  /** Reload a crashed instance and clear its crashed flag. */
+  reloadCrashedInstance(instanceId: string): Promise<void>;
+  /** Dismiss the crash overlay for an instance without reloading. */
+  dismissCrash(instanceId: string): void;
 }
 
 const EMPTY_PROFILE_STATE: ProfileState = {
@@ -184,6 +197,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
   profiles: [],
   currentProfile: null,
   accountManagerOpen: false,
+  crashedInstances: {},
 
   async init() {
     try {
@@ -222,6 +236,14 @@ export const useNexus = create<NexusStore>((set, get) => ({
         // Cheap path first: just update activeInstanceId in place. Avoids
         // a full IPC round-trip on every notification click.
         set((s) => ({ state: { ...s.state, activeInstanceId: instanceId } }));
+      });
+
+      // Track renderer-process crashes so the CrashOverlay can show over
+      // the affected instance's content area.
+      window.nexus.onViewCrashed(({ instanceId, reason }) => {
+        set((s) => ({
+          crashedInstances: { ...s.crashedInstances, [instanceId]: { reason } },
+        }));
       });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err), ready: true });
@@ -547,5 +569,38 @@ export const useNexus = create<NexusStore>((set, get) => ({
 
   popOverlay() {
     set((s) => ({ overlayCount: Math.max(0, s.overlayCount - 1) }));
+  },
+
+  async reloadCrashedInstance(instanceId) {
+    // The crashed flag is cleared optimistically. If the new render
+    // process also crashes, render-process-gone fires again and we'll
+    // re-add it to the set.
+    set((s) => {
+      const next = { ...s.crashedInstances };
+      delete next[instanceId];
+      return { crashedInstances: next };
+    });
+    // The main process's reloadActiveInstance only reloads whichever
+    // view is currently active. Make sure this one is active before
+    // reloading (no-op if it already is).
+    try {
+      await window.nexus.activateInstance(instanceId);
+      await window.nexus.reloadActiveInstance();
+    } catch (err) {
+      // If reload itself fails, re-flag so the overlay reappears with
+      // the new error string.
+      const reason = err instanceof Error ? err.message : String(err);
+      set((s) => ({
+        crashedInstances: { ...s.crashedInstances, [instanceId]: { reason } },
+      }));
+    }
+  },
+
+  dismissCrash(instanceId) {
+    set((s) => {
+      const next = { ...s.crashedInstances };
+      delete next[instanceId];
+      return { crashedInstances: next };
+    });
   },
 }));
