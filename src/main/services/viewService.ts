@@ -7,6 +7,7 @@ import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 import type { ModuleRegistryService } from './moduleRegistryService';
 import type { WindowService } from './windowService';
+import type { SettingsService } from './settingsService';
 import type { ProfileService } from './profileService';
 import { DefaultStrategyFactory } from './notifications/strategies';
 import type { NotificationStrategy, StrategyFactory } from './notifications/strategy';
@@ -34,6 +35,16 @@ export class ViewService implements Service {
   private bounds: Bounds = { x: 220, y: 40, width: 800, height: 600 };
   private suspended = false;
   private strategyFactory: StrategyFactory = new DefaultStrategyFactory();
+  /** Wall-clock ms of last `activate(id)` per instance — used by the
+   *  hibernation timer to find idle views. Not persisted; resets per
+   *  Nexus session. Each entry seeds to `Date.now()` when the view is
+   *  first ensured, so a freshly created instance has a "young" age. */
+  private lastActiveAt = new Map<string, number>();
+  /** Set of instance ids whose WebContentsView has been destroyed by the
+   *  hibernation timer. ensure() consults this to know whether to emit
+   *  `instance:woken` (rather than just `view:created`) on recreation. */
+  private hibernatedIds = new Set<string>();
+  private hibernateTimer: NodeJS.Timeout | null = null;
 
   async init(ctx: ServiceContext): Promise<void> {
     this.ctx = ctx;
@@ -41,10 +52,68 @@ export class ViewService implements Service {
     this.registry = ctx.container.get<ModuleRegistryService>('modules');
     this.windowService = ctx.container.get<WindowService>('window');
     this.profiles = ctx.container.get<ProfileService>('profiles');
+
+    // Check every 60s for views that have been idle longer than the
+    // configured threshold and hibernate them. Cheap operation — usually
+    // a no-op since most users have few instances and short sessions.
+    this.hibernateTimer = setInterval(() => {
+      this.runHibernationSweep();
+    }, 60_000);
   }
 
   async dispose(): Promise<void> {
+    if (this.hibernateTimer) {
+      clearInterval(this.hibernateTimer);
+      this.hibernateTimer = null;
+    }
     this.destroyAll();
+  }
+
+  /**
+   * Destroy WebContentsViews for any non-active instance whose last activation
+   * is older than `settings.hibernateAfterMinutes`. No-op when the feature
+   * is disabled or no instances qualify. Emits `instance:hibernated` per
+   * hibernated id so the renderer can mark them with a sleep indicator.
+   */
+  private runHibernationSweep(): void {
+    let settings: SettingsService | null = null;
+    try {
+      settings = this.ctx.container.get<SettingsService>('settings');
+    } catch {
+      return; // SettingsService not registered (tests)
+    }
+    const minutes = settings?.state.hibernateAfterMinutes;
+    if (!minutes || minutes <= 0) return;
+    const threshold = Date.now() - minutes * 60_000;
+    for (const [id, mv] of this.views) {
+      if (id === this.activeId) continue;
+      const last = this.lastActiveAt.get(id) ?? 0;
+      if (last > threshold) continue;
+      this.logger.info(`hibernating idle instance ${id} (last active ${new Date(last).toISOString()})`);
+      // Tear down the view but DON'T forget about the instance — we want
+      // ensure() to know it was hibernated so it can emit `instance:woken`.
+      try {
+        const win = this.windowService.getWindow();
+        if (win && !win.isDestroyed()) {
+          try {
+            win.contentView.removeChildView(mv.view);
+          } catch {
+            /* not attached */
+          }
+        }
+        mv.strategy?.detach();
+        try {
+          mv.view.webContents.close();
+        } catch {
+          /* already closed */
+        }
+      } finally {
+        this.views.delete(id);
+        this.lastActiveAt.delete(id);
+        this.hibernatedIds.add(id);
+        this.ctx.bus.emit('instance:hibernated', { instanceId: id });
+      }
+    }
   }
 
   /**
@@ -85,8 +154,16 @@ export class ViewService implements Service {
     const mod = this.registry.get(instance.moduleId);
     if (!mod) throw new Error(`module not found for instance ${instanceId}: ${instance.moduleId}`);
 
+    const wasHibernated = this.hibernatedIds.has(instanceId);
     const mv = this.create(instance, mod);
     this.views.set(instanceId, mv);
+    // Seed last-active time so a freshly-ensured-but-not-yet-activated view
+    // doesn't immediately qualify for hibernation in the same tick.
+    this.lastActiveAt.set(instanceId, Date.now());
+    if (wasHibernated) {
+      this.hibernatedIds.delete(instanceId);
+      this.ctx.bus.emit('instance:woken', { instanceId });
+    }
     this.ctx.bus.emit('view:created', { instanceId });
     return mv;
   }
@@ -114,6 +191,7 @@ export class ViewService implements Service {
     }
 
     this.activeId = instanceId;
+    this.lastActiveAt.set(instanceId, Date.now());
     mv.view.setBounds(this.suspended ? HIDDEN : this.bounds);
     this.ctx.bus.emit('instance:activated', { instanceId });
   }
@@ -136,6 +214,8 @@ export class ViewService implements Service {
       // ignore
     }
     this.views.delete(instanceId);
+    this.lastActiveAt.delete(instanceId);
+    this.hibernatedIds.delete(instanceId);
     if (this.activeId === instanceId) this.activeId = null;
     this.ctx.bus.emit('view:destroyed', { instanceId });
   }

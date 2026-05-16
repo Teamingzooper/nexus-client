@@ -79,6 +79,9 @@ declare global {
       setCloseToTray(enabled: boolean): Promise<void>;
       setGlobalShortcutEnabled(enabled: boolean): Promise<void>;
       setGlobalShortcut(accelerator: string): Promise<void>;
+      setHibernateAfterMinutes(minutes: number | null): Promise<void>;
+      onInstanceHibernated(cb: (instanceId: string) => void): () => void;
+      onInstanceWoken(cb: (instanceId: string) => void): () => void;
       testNotification(instanceId?: string | null): Promise<boolean>;
 
       listProfiles(): Promise<ProfileSummary[]>;

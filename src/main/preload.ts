@@ -113,6 +113,18 @@ const api = {
     invoke(IPC.PREFS_SET_GLOBAL_SHORTCUT_ENABLED, enabled),
   setGlobalShortcut: (accelerator: string): Promise<void> =>
     invoke(IPC.PREFS_SET_GLOBAL_SHORTCUT, accelerator),
+  setHibernateAfterMinutes: (minutes: number | null): Promise<void> =>
+    invoke(IPC.PREFS_SET_HIBERNATE_MINUTES, minutes),
+  onInstanceHibernated: (cb: (instanceId: string) => void): (() => void) => {
+    const listener = (_: unknown, payload: { instanceId: string }) => cb(payload.instanceId);
+    ipcRenderer.on(IPC.INSTANCE_HIBERNATED, listener);
+    return () => ipcRenderer.removeListener(IPC.INSTANCE_HIBERNATED, listener);
+  },
+  onInstanceWoken: (cb: (instanceId: string) => void): (() => void) => {
+    const listener = (_: unknown, payload: { instanceId: string }) => cb(payload.instanceId);
+    ipcRenderer.on(IPC.INSTANCE_WOKEN, listener);
+    return () => ipcRenderer.removeListener(IPC.INSTANCE_WOKEN, listener);
+  },
   testNotification: (instanceId?: string | null): Promise<boolean> =>
     invoke(IPC.NOTIFY_TEST, instanceId ?? null),
 

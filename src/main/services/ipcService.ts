@@ -378,6 +378,16 @@ export class IpcService implements Service {
       },
     });
 
+    this.router.register(IPC.PREFS_SET_HIBERNATE_MINUTES, {
+      // null/undefined → disabled, otherwise 5..480
+      input: z.number().int().min(0).max(480).nullable(),
+      handler: (minutes) => {
+        settings.setHibernateAfterMinutes(
+          minutes === null || minutes === 0 ? undefined : minutes,
+        );
+      },
+    });
+
     this.router.register(IPC.SIDEBAR_UPDATE_LAYOUT, {
       input: sidebarLayoutSchema,
       handler: (layout) => {
@@ -566,6 +576,25 @@ export class IpcService implements Service {
         const win = windowSvc.getWindow();
         if (win && !win.isDestroyed()) {
           win.webContents.send(IPC.VIEW_CRASHED, { instanceId, reason });
+        }
+      }),
+    );
+
+    // Forward hibernation lifecycle events so the renderer can show
+    // (and clear) the 💤 indicator on the sidebar.
+    this.teardowns.push(
+      ctx.bus.on('instance:hibernated', ({ instanceId }) => {
+        const win = windowSvc.getWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send(IPC.INSTANCE_HIBERNATED, { instanceId });
+        }
+      }),
+    );
+    this.teardowns.push(
+      ctx.bus.on('instance:woken', ({ instanceId }) => {
+        const win = windowSvc.getWindow();
+        if (win && !win.isDestroyed()) {
+          win.webContents.send(IPC.INSTANCE_WOKEN, { instanceId });
         }
       }),
     );

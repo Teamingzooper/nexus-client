@@ -66,6 +66,13 @@ interface NexusStore {
    */
   crashedInstances: Record<string, { reason: string }>;
 
+  /**
+   * Set of instance ids whose WebContentsView has been torn down by the
+   * hibernation timer. The sidebar shows a sleep indicator for these.
+   * Cleared when the instance is activated and its view is recreated.
+   */
+  hibernatedInstances: Record<string, true>;
+
   init(): Promise<void>;
   activateInstance(instanceId: string): Promise<void>;
   addInstance(moduleId: string): Promise<ModuleInstance>;
@@ -87,6 +94,8 @@ interface NexusStore {
   setCloseToTray(enabled: boolean): Promise<void>;
   setGlobalShortcutEnabled(enabled: boolean): Promise<void>;
   setGlobalShortcut(accelerator: string): Promise<void>;
+  /** Configure auto-hibernation. Pass null to disable, or 5..480 minutes. */
+  setHibernateAfterMinutes(minutes: number | null): Promise<void>;
   testNotification(): Promise<boolean>;
   exportThemePack(
     ids: string[],
@@ -201,6 +210,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
   currentProfile: null,
   accountManagerOpen: false,
   crashedInstances: {},
+  hibernatedInstances: {},
 
   async init() {
     try {
@@ -249,6 +259,21 @@ export const useNexus = create<NexusStore>((set, get) => ({
         set((s) => ({
           crashedInstances: { ...s.crashedInstances, [instanceId]: { reason } },
         }));
+      });
+
+      // Track hibernation state for the sidebar's 💤 indicator.
+      window.nexus.onInstanceHibernated((instanceId) => {
+        set((s) => ({
+          hibernatedInstances: { ...s.hibernatedInstances, [instanceId]: true as const },
+        }));
+      });
+      window.nexus.onInstanceWoken((instanceId) => {
+        set((s) => {
+          if (!s.hibernatedInstances[instanceId]) return {};
+          const next = { ...s.hibernatedInstances };
+          delete next[instanceId];
+          return { hibernatedInstances: next };
+        });
       });
     } catch (err) {
       set({ error: err instanceof Error ? err.message : String(err), ready: true });
@@ -380,6 +405,13 @@ export const useNexus = create<NexusStore>((set, get) => ({
     if (!trimmed) return;
     await window.nexus.setGlobalShortcut(trimmed);
     set((s) => ({ state: { ...s.state, globalShortcut: trimmed } }));
+  },
+
+  async setHibernateAfterMinutes(minutes) {
+    await window.nexus.setHibernateAfterMinutes(minutes);
+    set((s) => ({
+      state: { ...s.state, hibernateAfterMinutes: minutes ?? undefined },
+    }));
   },
 
   async testNotification() {
