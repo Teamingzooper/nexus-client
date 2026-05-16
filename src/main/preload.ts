@@ -9,6 +9,7 @@ import type {
   SidebarLayout,
   ModuleInstance,
   ProfileSummary,
+  ModuleLoadError,
 } from '../shared/types';
 
 type Envelope<T> = { ok: true; data: T } | { ok: false; error: string; details?: unknown };
@@ -29,6 +30,7 @@ const api = {
   listModules: (): Promise<LoadedModule[]> => invoke(IPC.MODULES_LIST),
   reloadModules: (): Promise<LoadedModule[]> => invoke(IPC.MODULES_RELOAD),
   openModulesDir: (): Promise<void> => invoke(IPC.MODULES_OPEN_DIR),
+  listModuleErrors: (): Promise<ModuleLoadError[]> => invoke(IPC.MODULES_LIST_ERRORS),
 
   addInstance: (moduleId: string): Promise<ModuleInstance> =>
     invoke(IPC.INSTANCES_ADD, moduleId),
