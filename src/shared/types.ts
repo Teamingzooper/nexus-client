@@ -65,6 +65,13 @@ export const IPC = {
   INSTANCES_RENAME: 'nexus:instances:rename',
   INSTANCES_RELOAD_ACTIVE: 'nexus:instances:reload-active',
   INSTANCES_SET_MUTED: 'nexus:instances:set-muted',
+  /**
+   * Push-event channel: main → renderer. Fires when a WebContentsView's
+   * renderer process dies (`render-process-gone` event). Renderer shows
+   * the CrashOverlay component over the affected instance's content area
+   * so the user can reload or dismiss.
+   */
+  VIEW_CRASHED: 'nexus:view:crashed',
   THEMES_LIST: 'nexus:themes:list',
   THEMES_SET: 'nexus:themes:set',
   THEMES_SAVE: 'nexus:themes:save',

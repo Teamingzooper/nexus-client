@@ -61,6 +61,9 @@ declare global {
       onUnread(cb: (update: UnreadUpdate) => void): () => void;
       onMenu(cb: (event: string) => void): () => void;
       onInstanceActivated(cb: (instanceId: string) => void): () => void;
+      onViewCrashed(
+        cb: (info: { instanceId: string; reason: string }) => void,
+      ): () => void;
       getAllUnread(): Promise<Record<string, number>>;
       setNotificationsEnabled(enabled: boolean): Promise<void>;
       setNotificationSound(enabled: boolean): Promise<void>;

@@ -13,6 +13,7 @@ export interface NexusEvents {
   'view:suspended': { suspended: boolean };
   'view:ready': { instanceId: string };
   'view:load-failed': { instanceId: string; error: string };
+  'view:crashed': { instanceId: string; reason: string };
   'notification:update': UnreadUpdate;
   'notification:native': {
     instanceId: string;

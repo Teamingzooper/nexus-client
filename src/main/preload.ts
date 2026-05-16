@@ -78,6 +78,14 @@ const api = {
     ipcRenderer.on(IPC.INSTANCE_ACTIVATED, listener);
     return () => ipcRenderer.removeListener(IPC.INSTANCE_ACTIVATED, listener);
   },
+  onViewCrashed: (
+    cb: (info: { instanceId: string; reason: string }) => void,
+  ): (() => void) => {
+    const listener = (_: unknown, payload: { instanceId: string; reason: string }) =>
+      cb(payload);
+    ipcRenderer.on(IPC.VIEW_CRASHED, listener);
+    return () => ipcRenderer.removeListener(IPC.VIEW_CRASHED, listener);
+  },
   getAllUnread: (): Promise<Record<string, number>> => invoke(IPC.UNREAD_ALL),
   setNotificationsEnabled: (enabled: boolean): Promise<void> =>
     invoke(IPC.NOTIFY_SET_ENABLED, enabled),

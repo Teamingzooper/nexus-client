@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import { useNexus } from './store';
 import { Sidebar } from './components/Sidebar';
 import { ContentArea } from './components/ContentArea';
+import { CrashOverlay } from './components/CrashOverlay';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AppHeader } from './components/AppHeader';
@@ -137,6 +138,7 @@ export function App() {
         <AccountManager />
         <CommandPalette />
         <ConfirmDialog />
+        <CrashOverlay />
       </div>
     </ErrorBoundary>
   );

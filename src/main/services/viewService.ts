@@ -321,6 +321,24 @@ export class ViewService implements Service {
       this.ctx.bus.emit('view:load-failed', { instanceId: instance.id, error: desc });
     });
 
+    // Renderer-process crash detection. Fires when the embedded web page's
+    // renderer process exits abnormally (OOM kill, segfault in V8, the page
+    // calling process.crash(), etc.). Without this hook the user just sees
+    // a frozen webview; with it, the renderer's CrashOverlay shows over the
+    // content area with a Reload button.
+    view.webContents.on('render-process-gone', (_e, details) => {
+      // `clean-exit` is a normal teardown (e.g. on view.webContents.close()).
+      // Only flag the abnormal exits.
+      if (details.reason === 'clean-exit') return;
+      this.logger.warn(
+        `renderer for ${instance.id} died: ${details.reason} (exitCode ${details.exitCode})`,
+      );
+      this.ctx.bus.emit('view:crashed', {
+        instanceId: instance.id,
+        reason: details.reason,
+      });
+    });
+
     const strategy = this.strategyFactory.create(
       manifest.notifications ?? { kind: 'title' },
     );
