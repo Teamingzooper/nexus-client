@@ -426,6 +426,62 @@ export function SettingsPanel({ onClose }: Props) {
                 </dl>
               </div>
 
+              <div className="settings-backup">
+                <h3>Backup</h3>
+                <p className="editor-hint">
+                  Export your Nexus <strong>preferences</strong> (theme choice, notification
+                  settings, DND, sidebar width, etc.) to a JSON file you can restore on
+                  another machine. Themes have their own export under the Themes tab.
+                  Account logins are not included — sign in to each instance fresh on the
+                  new machine.
+                </p>
+                <div className="row-actions">
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await window.nexus.exportPrefs();
+                        if (!res.canceled) {
+                          setNotifFlash(`Exported preferences to ${res.path}`);
+                          setTimeout(() => setNotifFlash(null), 4000);
+                        }
+                      } catch (err) {
+                        setNotifFlash(
+                          'Export failed: ' + (err instanceof Error ? err.message : String(err)),
+                        );
+                        setTimeout(() => setNotifFlash(null), 5000);
+                      }
+                    }}
+                  >
+                    Export preferences…
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const ok = await showConfirm({
+                        title: 'Import preferences?',
+                        message:
+                          'This will replace your current Nexus preferences (theme, notifications, sidebar width, etc.) with those from the selected file. Your accounts and themes are not affected. Nexus will reload after importing.',
+                        confirmLabel: 'Choose file…',
+                      });
+                      if (!ok) return;
+                      try {
+                        await window.nexus.importPrefs();
+                        // On success, main reloads the renderer — we won't reach
+                        // anything after this. If user cancels the file picker,
+                        // we fall through silently.
+                      } catch (err) {
+                        setNotifFlash(
+                          'Import failed: ' + (err instanceof Error ? err.message : String(err)),
+                        );
+                        setTimeout(() => setNotifFlash(null), 5000);
+                      }
+                    }}
+                  >
+                    Import preferences…
+                  </button>
+                </div>
+                {notifFlash && <p className="settings-flash">{notifFlash}</p>}
+              </div>
+
               <div className="danger-zone">
                 <h3>Danger zone</h3>
                 <p>

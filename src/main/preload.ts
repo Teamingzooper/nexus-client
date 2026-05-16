@@ -54,6 +54,10 @@ const api = {
   importThemePack: (): Promise<
     { canceled: true } | { canceled: false; added: Theme[]; themes: Theme[] }
   > => invoke(IPC.THEMES_IMPORT_PACK),
+  exportPrefs: (): Promise<{ canceled: true } | { canceled: false; path: string }> =>
+    invoke(IPC.PREFS_EXPORT),
+  importPrefs: (): Promise<{ canceled: true } | { canceled: false; path: string }> =>
+    invoke(IPC.PREFS_IMPORT),
 
   getState: (): Promise<AppState> => invoke(IPC.STATE_GET),
   setContentBounds: (bounds: Bounds): Promise<void> => invoke(IPC.LAYOUT_SET_BOUNDS, bounds),

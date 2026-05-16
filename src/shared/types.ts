@@ -111,6 +111,8 @@ export const IPC = {
   UPDATER_INSTALL: 'nexus:updater:install',
   UPDATER_STATUS: 'nexus:updater:status',
   APP_VERSION: 'nexus:app:version',
+  PREFS_EXPORT: 'nexus:prefs:export',
+  PREFS_IMPORT: 'nexus:prefs:import',
   COMMUNITY_MODULES_LIST: 'nexus:community-modules:list',
   COMMUNITY_MODULES_INSTALL: 'nexus:community-modules:install',
 } as const;

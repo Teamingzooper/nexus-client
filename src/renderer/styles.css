@@ -2049,3 +2049,25 @@ img.sidebar-logo.app-icon-img {
 .crash-overlay-dismiss:hover {
   background: var(--nx-sidebar-hover);
 }
+
+/* Settings — Backup section */
+.settings-backup {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--nx-border);
+  border-radius: 8px;
+}
+
+.settings-backup h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+}
+
+.settings-flash {
+  margin-top: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  background: var(--nx-sidebar-hover);
+  border-radius: 4px;
+  color: var(--nx-text);
+}

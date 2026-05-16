@@ -3,6 +3,7 @@ import { app, dialog, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import { IPC } from '../../shared/types';
 import {
+  appStateSchema,
   boundsSchema,
   moduleIdSchema,
   themeIdSchema,
@@ -192,6 +193,87 @@ export class IpcService implements Service {
     });
 
     this.router.register(IPC.STATE_GET, { handler: () => settings.state });
+
+    // Preferences export/import. Scoped to the global app state only —
+    // themes have their own dedicated export/import flow, and profile /
+    // instance / session data is deliberately NOT included (no logins
+    // travel between machines; users sign in fresh after restore).
+    this.router.register(IPC.PREFS_EXPORT, {
+      handler: async () => {
+        const win = windowSvc.getWindow();
+        const parent = win && !win.isDestroyed() ? win : (BrowserWindow.getFocusedWindow() ?? undefined);
+        const result = await dialog.showSaveDialog(parent as BrowserWindow, {
+          title: 'Export Nexus preferences',
+          defaultPath: `nexus-prefs-${new Date().toISOString().slice(0, 10)}.json`,
+          filters: [{ name: 'Nexus preferences', extensions: ['json'] }],
+        });
+        if (result.canceled || !result.filePath) {
+          return { canceled: true as const };
+        }
+        const bundle = {
+          $schema: 'nexus-prefs' as const,
+          version: 1 as const,
+          exportedAt: new Date().toISOString(),
+          appVersion: app.getVersion(),
+          appState: settings.state,
+        };
+        await fs.writeFile(result.filePath, JSON.stringify(bundle, null, 2), 'utf8');
+        return { canceled: false as const, path: result.filePath };
+      },
+    });
+
+    this.router.register(IPC.PREFS_IMPORT, {
+      handler: async () => {
+        const win = windowSvc.getWindow();
+        const parent = win && !win.isDestroyed() ? win : (BrowserWindow.getFocusedWindow() ?? undefined);
+        const result = await dialog.showOpenDialog(parent as BrowserWindow, {
+          title: 'Import Nexus preferences',
+          properties: ['openFile'],
+          filters: [{ name: 'Nexus preferences', extensions: ['json'] }],
+        });
+        if (result.canceled || result.filePaths.length === 0) {
+          return { canceled: true as const };
+        }
+        const filePath = result.filePaths[0];
+        const raw = await fs.readFile(filePath, 'utf8');
+        let parsed: unknown;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          throw new Error('selected file is not valid JSON');
+        }
+        const bundleSchema = z.object({
+          $schema: z.literal('nexus-prefs').optional(),
+          version: z.literal(1),
+          exportedAt: z.string().optional(),
+          appVersion: z.string().optional(),
+          appState: appStateSchema,
+        });
+        const validated = bundleSchema.safeParse(parsed);
+        if (!validated.success) {
+          throw new Error(
+            'preferences file does not match the expected shape (was it written by an older Nexus, or hand-edited?)',
+          );
+        }
+        // Activate-profile + global-shortcut + window-state come from the
+        // CURRENT machine; importing them is more annoying than useful.
+        // Strip them so the user keeps their existing profile selection
+        // and window position. Theme + notification + sidebar prefs do
+        // come across.
+        const { activeProfileId: _activeProfileId, windowState: _windowState, ...importable } =
+          validated.data.appState;
+        void _activeProfileId;
+        void _windowState;
+        settings.update(importable);
+        // Reload the renderer so it picks up the new state cleanly. The
+        // window stays where it is (we kept windowState) so the reload
+        // is visually minimal.
+        if (win && !win.isDestroyed()) {
+          win.webContents.reloadIgnoringCache();
+        }
+        return { canceled: false as const, path: filePath };
+      },
+    });
 
     this.router.register(IPC.LAYOUT_SET_BOUNDS, {
       input: boundsSchema,
