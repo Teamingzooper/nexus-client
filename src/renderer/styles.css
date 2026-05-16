@@ -2071,3 +2071,58 @@ img.sidebar-logo.app-icon-img {
   border-radius: 4px;
   color: var(--nx-text);
 }
+
+/* Module load errors panel */
+.module-errors {
+  margin: 12px 0 16px 0;
+  padding: 12px 14px;
+  background: rgba(255, 99, 71, 0.08);
+  border: 1px solid rgba(255, 99, 71, 0.4);
+  border-radius: 8px;
+}
+
+.module-errors h3 {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  color: var(--nx-badge);
+}
+
+.module-errors-list {
+  list-style: none;
+  margin: 8px 0 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.module-error-row {
+  padding: 8px 10px;
+  background: var(--nx-bg);
+  border: 1px solid var(--nx-border);
+  border-radius: 6px;
+}
+
+.module-error-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  color: var(--nx-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.module-error-message {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--nx-text);
+}
+
+.module-error-details {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+  list-style: disc;
+}
+
+.module-error-details code {
+  font-size: 11px;
+  color: var(--nx-text-muted);
+}

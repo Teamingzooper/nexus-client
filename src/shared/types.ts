@@ -34,6 +34,21 @@ export interface LoadedModule {
   iconDataUrl?: string;
 }
 
+/**
+ * Reported by ModuleRegistryService when a directory under modules/ or
+ * ~/.nexus/modules/ couldn't be loaded as a module — usually because of
+ * a malformed manifest. Surfaced in Settings → Modules so users can fix
+ * the issue without digging through logs.
+ */
+export interface ModuleLoadError {
+  /** Absolute filesystem path of the module directory. */
+  path: string;
+  /** Short human-readable explanation. */
+  message: string;
+  /** Optional structured details, e.g. Zod issue paths for manifest errors. */
+  details?: string[];
+}
+
 export interface UnreadUpdate {
   moduleId: string;
   count: number;
@@ -52,6 +67,7 @@ export const IPC = {
   MODULES_LIST: 'nexus:modules:list',
   MODULES_OPEN_DIR: 'nexus:modules:open-dir',
   MODULES_RELOAD: 'nexus:modules:reload',
+  MODULES_LIST_ERRORS: 'nexus:modules:list-errors',
   INSTANCES_ACTIVATE: 'nexus:instances:activate',
   /**
    * Push-event channel: main → renderer. Fires whenever the active instance

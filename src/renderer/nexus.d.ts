@@ -7,6 +7,7 @@ import type {
   SidebarLayout,
   ModuleInstance,
   ProfileSummary,
+  ModuleLoadError,
 } from '../shared/types';
 
 export interface UpdateInfo {
@@ -32,6 +33,7 @@ declare global {
       listModules(): Promise<LoadedModule[]>;
       reloadModules(): Promise<LoadedModule[]>;
       openModulesDir(): Promise<void>;
+      listModuleErrors(): Promise<ModuleLoadError[]>;
 
       addInstance(moduleId: string): Promise<ModuleInstance>;
       removeInstance(instanceId: string): Promise<void>;

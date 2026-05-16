@@ -15,6 +15,7 @@ export function SettingsPanel({ onClose }: Props) {
   const [tab, setTab] = useState<Tab>('modules');
 
   const modules = useNexus((s) => s.modules);
+  const moduleErrors = useNexus((s) => s.moduleErrors);
   const instances = useNexus((s) => s.state.instances);
   const notificationsEnabled = useNexus((s) => s.state.notificationsEnabled ?? true);
   const notificationSound = useNexus((s) => s.state.notificationSound ?? true);
@@ -167,6 +168,37 @@ export function SettingsPanel({ onClose }: Props) {
                 <strong>instances</strong> of any module to log in with separate accounts —
                 e.g. two WhatsApps, one work, one personal.
               </p>
+
+              {moduleErrors.length > 0 && (
+                <div className="module-errors" role="alert">
+                  <h3>
+                    Couldn't load {moduleErrors.length} module
+                    {moduleErrors.length === 1 ? '' : 's'}
+                  </h3>
+                  <p className="editor-hint">
+                    These directories were skipped because their{' '}
+                    <code>nexus-module.json</code> is missing or invalid. Fix the issues
+                    below and click <strong>Reload modules</strong>.
+                  </p>
+                  <ul className="module-errors-list">
+                    {moduleErrors.map((e) => (
+                      <li key={e.path} className="module-error-row">
+                        <div className="module-error-path">{e.path}</div>
+                        <div className="module-error-message">{e.message}</div>
+                        {e.details && e.details.length > 0 && (
+                          <ul className="module-error-details">
+                            {e.details.map((d, i) => (
+                              <li key={i}>
+                                <code>{d}</code>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <ul className="module-settings" role="list">
                 {modules.map((m) => {

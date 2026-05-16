@@ -7,6 +7,7 @@ import type {
   ModuleInstance,
   ProfileSummary,
   ProfileState,
+  ModuleLoadError,
 } from '../shared/types';
 import { defaultLayout } from '../shared/sidebarLayout';
 
@@ -39,6 +40,7 @@ type CompositeState = AppState & {
 
 interface NexusStore {
   modules: LoadedModule[];
+  moduleErrors: ModuleLoadError[];
   themes: Theme[];
   state: CompositeState;
   unread: Record<string, number>;
@@ -183,6 +185,7 @@ async function refreshComposite(): Promise<CompositeState> {
 
 export const useNexus = create<NexusStore>((set, get) => ({
   modules: [],
+  moduleErrors: [],
   themes: [],
   state: DEFAULT_STATE,
   unread: {},
@@ -201,9 +204,10 @@ export const useNexus = create<NexusStore>((set, get) => ({
 
   async init() {
     try {
-      const [modules, themes, composite, unread, profiles, currentProfile] =
+      const [modules, moduleErrors, themes, composite, unread, profiles, currentProfile] =
         await Promise.all([
           window.nexus.listModules(),
+          window.nexus.listModuleErrors(),
           window.nexus.listThemes(),
           refreshComposite(),
           window.nexus.getAllUnread(),
@@ -212,6 +216,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
         ]);
       set({
         modules,
+        moduleErrors,
         themes,
         state: composite,
         unread,
@@ -280,8 +285,11 @@ export const useNexus = create<NexusStore>((set, get) => ({
   },
 
   async reloadModules() {
-    const modules = await window.nexus.reloadModules();
-    set({ modules });
+    const [modules, moduleErrors] = await Promise.all([
+      window.nexus.reloadModules(),
+      window.nexus.listModuleErrors(),
+    ]);
+    set({ modules, moduleErrors });
   },
 
   async reloadActiveInstance() {
@@ -415,6 +423,7 @@ export const useNexus = create<NexusStore>((set, get) => ({
     // copies defensively in case the reload is slow.
     set({
       modules: [],
+      moduleErrors: [],
       themes: [],
       state: DEFAULT_STATE,
       unread: {},

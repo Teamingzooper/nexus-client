@@ -1,8 +1,9 @@
 import { shell } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import { z } from 'zod';
 import { manifestSchema } from '../../shared/schemas';
-import type { LoadedModule } from '../../shared/types';
+import type { LoadedModule, ModuleLoadError } from '../../shared/types';
 import type { Service, ServiceContext } from '../core/service';
 import type { Logger } from '../core/logger';
 import { resolveModuleFile } from '../core/security';
@@ -21,6 +22,7 @@ export class ModuleRegistryService implements Service {
   readonly name = 'modules';
   private logger!: Logger;
   private modules = new Map<string, LoadedModule>();
+  private loadErrors: ModuleLoadError[] = [];
   private userDir = '';
   private bundledDir = '';
   private bus!: ServiceContext['bus'];
@@ -37,6 +39,7 @@ export class ModuleRegistryService implements Service {
 
   async load(): Promise<LoadedModule[]> {
     this.modules.clear();
+    this.loadErrors = [];
     for (const dir of [this.bundledDir, this.userDir]) {
       try {
         const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -50,7 +53,9 @@ export class ModuleRegistryService implements Service {
         if (err?.code !== 'ENOENT') this.logger.warn(`scan failed: ${dir}`, err);
       }
     }
-    this.logger.info(`loaded ${this.modules.size} module(s)`);
+    this.logger.info(
+      `loaded ${this.modules.size} module(s); ${this.loadErrors.length} error(s)`,
+    );
     return this.list();
   }
 
@@ -99,8 +104,35 @@ export class ModuleRegistryService implements Service {
       return loaded;
     } catch (err) {
       this.logger.warn(`invalid module at ${modulePath}`, err);
+      this.recordLoadError(modulePath, err);
       return null;
     }
+  }
+
+  /**
+   * Capture a structured load error so the renderer can surface it in
+   * Settings → Modules. Zod errors get a list of issue paths; other
+   * errors collapse to a single message.
+   */
+  private recordLoadError(modulePath: string, err: unknown): void {
+    let message = 'Unknown error';
+    let details: string[] | undefined;
+    if (err instanceof z.ZodError) {
+      message = 'Manifest validation failed';
+      details = err.issues.map(
+        (issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`,
+      );
+    } else if (err instanceof SyntaxError) {
+      message = `Manifest is not valid JSON: ${err.message}`;
+    } else if (err instanceof Error) {
+      message = err.message;
+    }
+    this.loadErrors.push({ path: modulePath, message, details });
+  }
+
+  /** Per-module load errors from the last load/reload. Surfaced in the UI. */
+  errors(): ModuleLoadError[] {
+    return [...this.loadErrors];
   }
 
   get(id: string): LoadedModule | undefined {

@@ -54,6 +54,8 @@ export class IpcService implements Service {
 
     this.router.register(IPC.MODULES_OPEN_DIR, { handler: () => registry.openUserDir() });
 
+    this.router.register(IPC.MODULES_LIST_ERRORS, { handler: () => registry.errors() });
+
     this.router.register(IPC.INSTANCES_ADD, {
       input: moduleIdSchema,
       handler: async (moduleId) => {
