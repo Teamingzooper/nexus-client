@@ -51,6 +51,8 @@ declare global {
       importThemePack(): Promise<
         { canceled: true } | { canceled: false; added: Theme[]; themes: Theme[] }
       >;
+      exportPrefs(): Promise<{ canceled: true } | { canceled: false; path: string }>;
+      importPrefs(): Promise<{ canceled: true } | { canceled: false; path: string }>;
 
       getState(): Promise<AppState>;
       setContentBounds(bounds: Bounds): Promise<void>;
