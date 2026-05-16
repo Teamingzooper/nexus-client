@@ -137,6 +137,17 @@ export const appStateSchema = z.object({
   closeToTray: z.boolean().optional(),
   globalShortcutEnabled: z.boolean().optional(),
   globalShortcut: z.string().max(64).optional(),
+  /**
+   * Auto-hibernate inactive instances after this many minutes to reclaim
+   * memory. When undefined or 0 the feature is disabled. Range 5–480
+   * (5 minutes to 8 hours) when set.
+   *
+   * Hibernating destroys the embedded WebContentsView, freeing the
+   * underlying Chromium tab's memory. Re-activating the instance later
+   * recreates the view (slow first activation — the page has to load
+   * again). The active instance is never hibernated.
+   */
+  hibernateAfterMinutes: z.number().int().min(5).max(480).optional(),
   windowState: z
     .object({
       x: z.number().optional(),

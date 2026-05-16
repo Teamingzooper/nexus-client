@@ -2126,3 +2126,32 @@ img.sidebar-logo.app-icon-img {
   font-size: 11px;
   color: var(--nx-text-muted);
 }
+
+/* Hibernate sidebar indicator */
+.hibernate-indicator {
+  margin-left: 4px;
+  font-size: 11px;
+  opacity: 0.7;
+  cursor: help;
+}
+
+/* Settings — Performance section */
+.settings-performance {
+  margin-top: 24px;
+  padding: 16px;
+  border: 1px solid var(--nx-border);
+  border-radius: 8px;
+}
+
+.settings-performance h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+}
+
+.settings-performance .settings-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--nx-text-muted);
+}

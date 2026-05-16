@@ -88,6 +88,18 @@ export const IPC = {
    * so the user can reload or dismiss.
    */
   VIEW_CRASHED: 'nexus:view:crashed',
+  /**
+   * Push-event channel: main → renderer. Fires when ViewService destroys
+   * an idle instance's WebContentsView to reclaim memory. Renderer marks
+   * the instance with a sleep indicator in the sidebar.
+   */
+  INSTANCE_HIBERNATED: 'nexus:instance:hibernated',
+  /**
+   * Push-event channel: main → renderer. Fires when ViewService recreates
+   * a previously-hibernated instance's WebContentsView (because the user
+   * activated it). Renderer clears the sleep indicator.
+   */
+  INSTANCE_WOKEN: 'nexus:instance:woken',
   THEMES_LIST: 'nexus:themes:list',
   THEMES_SET: 'nexus:themes:set',
   THEMES_SAVE: 'nexus:themes:save',
@@ -113,6 +125,7 @@ export const IPC = {
   PREFS_SET_CLOSE_TO_TRAY: 'nexus:prefs:set-close-to-tray',
   PREFS_SET_GLOBAL_SHORTCUT_ENABLED: 'nexus:prefs:set-global-shortcut-enabled',
   PREFS_SET_GLOBAL_SHORTCUT: 'nexus:prefs:set-global-shortcut',
+  PREFS_SET_HIBERNATE_MINUTES: 'nexus:prefs:set-hibernate-minutes',
   PROFILES_LIST: 'nexus:profiles:list',
   PROFILES_CURRENT: 'nexus:profiles:current',
   PROFILES_STATE: 'nexus:profiles:state',

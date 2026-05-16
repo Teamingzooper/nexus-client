@@ -38,6 +38,7 @@ export function Sidebar() {
   const layout = useNexus((s) => s.state.sidebarLayout ?? defaultLayout());
   const activeId = useNexus((s) => s.state.activeInstanceId);
   const unread = useNexus((s) => s.unread);
+  const hibernatedInstances = useNexus((s) => s.hibernatedInstances);
   const savedCompact = useNexus((s) => s.state.sidebarCompact ?? false);
   const savedWidth = useNexus((s) => s.state.sidebarWidth ?? 240);
   const activate = useNexus((s) => s.activateInstance);
@@ -355,6 +356,7 @@ export function Sidebar() {
                   {entries.map((instance) => {
                     const m = modulesById.get(instance.moduleId);
                     const count = unread[instance.id] ?? 0;
+                    const isHibernated = hibernatedInstances[instance.id] === true;
                     const isActive = activeId === instance.id;
                     const hintKey = `${group.id}:${instance.id}`;
                     const showAbove = dropHint === `${hintKey}:before`;
@@ -433,6 +435,15 @@ export function Sidebar() {
                               aria-label={`${count} unread`}
                             >
                               {count > 99 ? '99+' : count}
+                            </span>
+                          )}
+                          {isHibernated && !isRenaming && (
+                            <span
+                              className="hibernate-indicator"
+                              title="Hibernated to save memory. Click to wake."
+                              aria-label="Hibernated"
+                            >
+                              💤
                             </span>
                           )}
                           {!isRenaming && (

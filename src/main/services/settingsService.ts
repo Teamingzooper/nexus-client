@@ -170,6 +170,22 @@ export class SettingsService implements Service {
     this.queueWrite();
   }
 
+  /**
+   * Configure auto-hibernation of inactive instances.
+   * Pass `undefined` (or 0) to disable. Otherwise minutes 5..480.
+   */
+  setHibernateAfterMinutes(minutes: number | undefined): void {
+    let normalized: number | undefined;
+    if (minutes === undefined || minutes === 0) {
+      normalized = undefined;
+    } else {
+      normalized = Math.max(5, Math.min(480, Math.round(minutes)));
+    }
+    if (this._state.hibernateAfterMinutes === normalized) return;
+    this._state = { ...this._state, hibernateAfterMinutes: normalized };
+    this.queueWrite();
+  }
+
   setWindowState(ws: AppState['windowState']): void {
     this._state = { ...this._state, windowState: ws };
     this.queueWrite();

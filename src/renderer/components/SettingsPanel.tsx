@@ -27,6 +27,8 @@ export function SettingsPanel({ onClose }: Props) {
   const closeToTray = useNexus((s) => s.state.closeToTray ?? false);
   const globalShortcutEnabled = useNexus((s) => s.state.globalShortcutEnabled ?? false);
   const globalShortcut = useNexus((s) => s.state.globalShortcut ?? 'Alt+`');
+  const hibernateAfterMinutes = useNexus((s) => s.state.hibernateAfterMinutes);
+  const setHibernateAfterMinutes = useNexus((s) => s.setHibernateAfterMinutes);
 
   const setNotificationsEnabled = useNexus((s) => s.setNotificationsEnabled);
   const setNotificationSound = useNexus((s) => s.setNotificationSound);
@@ -456,6 +458,46 @@ export function SettingsPanel({ onClose }: Props) {
                   <dt><kbd>Esc</kbd></dt>
                   <dd>Close settings</dd>
                 </dl>
+              </div>
+
+              <div className="settings-performance">
+                <h3>Performance</h3>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={hibernateAfterMinutes !== undefined}
+                    onChange={(e) => {
+                      void setHibernateAfterMinutes(e.target.checked ? 60 : null);
+                    }}
+                  />
+                  <div>
+                    <div className="settings-toggle-title">Hibernate inactive instances</div>
+                    <div className="settings-toggle-desc">
+                      Reclaim memory by tearing down embedded webviews for instances you
+                      haven't used in a while. Re-activating an instance reloads its page
+                      (slow first activation). The currently-active instance is never
+                      hibernated.
+                    </div>
+                  </div>
+                </label>
+                {hibernateAfterMinutes !== undefined && (
+                  <label className="settings-field" style={{ marginTop: 8 }}>
+                    Hibernate after
+                    <input
+                      type="number"
+                      min={5}
+                      max={480}
+                      value={hibernateAfterMinutes}
+                      onChange={(e) => {
+                        const n = Number(e.target.value);
+                        if (!Number.isFinite(n)) return;
+                        void setHibernateAfterMinutes(Math.max(5, Math.min(480, Math.round(n))));
+                      }}
+                      style={{ width: 80 }}
+                    />
+                    minutes of inactivity
+                  </label>
+                )}
               </div>
 
               <div className="settings-backup">

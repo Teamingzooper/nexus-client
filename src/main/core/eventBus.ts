@@ -14,6 +14,8 @@ export interface NexusEvents {
   'view:ready': { instanceId: string };
   'view:load-failed': { instanceId: string; error: string };
   'view:crashed': { instanceId: string; reason: string };
+  'instance:hibernated': { instanceId: string };
+  'instance:woken': { instanceId: string };
   'notification:update': UnreadUpdate;
   'notification:native': {
     instanceId: string;
